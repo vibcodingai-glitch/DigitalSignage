@@ -15,6 +15,7 @@ interface Profile {
 export function useUser() {
     const [user, setUser] = useState<User | null>(null)
     const [profile, setProfile] = useState<Profile | null>(null)
+    const [session, setSession] = useState<any | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const supabase = createClient()
 
@@ -28,6 +29,7 @@ export function useUser() {
 
             if (sessionUser && mounted) {
                 setUser(sessionUser)
+                setSession(session)
 
                 // 2. Fetch profile in parallel — don't block on it
                 supabase
@@ -49,15 +51,16 @@ export function useUser() {
         init()
 
         // Listen for auth state changes
-        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
             if (event === 'SIGNED_OUT') {
-                if (mounted) { setUser(null); setProfile(null) }
-            } else if (session?.user && mounted) {
-                setUser(session.user)
+                if (mounted) { setUser(null); setProfile(null); setSession(null) }
+            } else if (currentSession?.user && mounted) {
+                setUser(currentSession.user)
+                setSession(currentSession)
                 const { data: profileData } = await supabase
                     .from('profiles')
                     .select('*, organizations(*)')
-                    .eq('id', session.user.id)
+                    .eq('id', currentSession.user.id)
                     .single()
                 if (mounted && profileData) setProfile(profileData as Profile)
             }
@@ -69,5 +72,5 @@ export function useUser() {
         }
     }, [supabase])
 
-    return { user, profile, isLoading }
+    return { user, profile, session, isLoading }
 }

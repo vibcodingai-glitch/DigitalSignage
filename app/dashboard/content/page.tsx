@@ -151,7 +151,7 @@ function TableauEmbed({ url }: { url: string }) {
 
 
 export default function ContentLibraryPage() {
-    const { profile } = useUser()
+    const { profile, session, user } = useUser()
     const supabase = createClient()
     const { toast } = useToast()
 
@@ -252,7 +252,7 @@ export default function ContentLibraryPage() {
 
         let orgId = profile?.organization_id
         if (!orgId) {
-            const { data: { user } } = await supabase.auth.getUser()
+            // Only try to fetch orgId if user exists but profile isn't fully loaded
             if (user) {
                 const { data } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
                 if (data?.organization_id) orgId = data.organization_id
@@ -282,8 +282,6 @@ export default function ContentLibraryPage() {
         try {
             console.log('[SaveLink] Payload:', { organization_id: orgId, name: linkForm.name, type: linkForm.type, source_url: linkForm.source_url })
             
-            // Get session token directly to use raw fetch (bypassing supabase-js queuing bugs)
-            const { data: { session } } = await supabase.auth.getSession()
             if (!session?.access_token) throw new Error("No active session token")
 
             // Optimistic UI Update: Make it completely seamless
@@ -380,7 +378,6 @@ export default function ContentLibraryPage() {
     const startUploads = async () => {
         let orgId = profile?.organization_id
         if (!orgId) {
-            const { data: { user } } = await supabase.auth.getUser()
             if (user) {
                 const { data } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
                 if (data?.organization_id) orgId = data.organization_id
