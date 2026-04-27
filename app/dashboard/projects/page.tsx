@@ -48,15 +48,11 @@ export default function ProjectsListPage() {
     const fetchProjects = useCallback(async () => {
         setIsFetching(true)
         try {
-            const [{ data, error }, { data: screensData }] = await Promise.all([
+            // 1. Fetch base projects and screens without complex nested RLS joins
+            const [{ data: projectsData, error: projectsError }, { data: screensData }] = await Promise.all([
                 supabase
                     .from('projects')
-                    .select(`
-                        *,
-                        screen:screens!projects_screen_id_fkey(id, name),
-                        playlist_items(id, duration_override, content_item:content_items(duration_seconds)),
-                        schedules(id)
-                    `)
+                    .select('*, screen:screens!projects_screen_id_fkey(id, name)')
                     .order('created_at', { ascending: false }),
                 supabase
                     .from('screens')
@@ -64,17 +60,46 @@ export default function ProjectsListPage() {
                     .order('name')
             ])
 
-            if (error) throw error
+            if (projectsError) throw projectsError
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const formatted = (data || []).map((p: any) => {
+            const projectsList = projectsData || []
+            const projectIds = projectsList.map(p => p.id)
+
+            // 2. Fetch related data separately to bypass RLS Cartesian join explosion
+            let playlistItemsData: any[] = []
+            let schedulesData: any[] = []
+
+            if (projectIds.length > 0) {
+                const [plRes, schRes] = await Promise.all([
+                    supabase
+                        .from('playlist_items')
+                        .select('id, project_id, duration_override, content_item:content_items(duration_seconds)')
+                        .in('project_id', projectIds),
+                    supabase
+                        .from('schedules')
+                        .select('id, project_id')
+                        .in('project_id', projectIds)
+                ])
+                playlistItemsData = plRes.data || []
+                schedulesData = schRes.data || []
+            }
+
+            // 3. Map relationships in memory
+            const formatted = projectsList.map((p: any) => {
+                const pItems = playlistItemsData.filter(pi => pi.project_id === p.id)
+                const pSchedules = schedulesData.filter(s => s.project_id === p.id)
+
                 let totalDuration = 0
-                const numItems = p.playlist_items?.length || 0
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                p.playlist_items?.forEach((pi: any) => {
+                pItems.forEach((pi: any) => {
                     totalDuration += (pi.duration_override || pi.content_item?.duration_seconds || 10)
                 })
-                return { ...p, numItems, totalDuration, numSchedules: p.schedules?.length || 0 }
+                
+                return { 
+                    ...p, 
+                    numItems: pItems.length, 
+                    totalDuration, 
+                    numSchedules: pSchedules.length 
+                }
             })
 
             setProjects(formatted)
