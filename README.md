@@ -1,36 +1,145 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SignageHub — Digital Signage Management Platform
 
-## Getting Started
+> A cloud-based digital signage platform built on **Next.js 14** + **Supabase**.
+> Manage screens, projects, playlists, and schedules from a modern admin dashboard.
+> Display clients run fullscreen in any browser — no app installation required.
 
-First, run the development server:
+---
+
+## Quick Start
 
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment (see .env.example)
+cp .env.example .env.local
+
+# 3. Run migrations in Supabase SQL Editor (in order):
+#    supabase/migrations/20240305000000_digital_signage_schema.sql
+#    supabase/migrations/20240306000000_public_display_rls.sql
+#    supabase/migrations/20240307000000_fix_handle_new_user.sql
+
+# 4. Start local dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) → register → the platform auto-creates your workspace.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Architecture
 
-## Learn More
+```
+Admin Dashboard (/dashboard)
+  ↓  Supabase Realtime (WebSocket)
+Display Client (/display/<display-key>)
+```
 
-To learn more about Next.js, take a look at the following resources:
+| Layer | Tech |
+|-------|------|
+| Frontend | Next.js 14 (App Router) |
+| Styling | Tailwind CSS + shadcn/ui |
+| Database | Supabase (PostgreSQL + RLS) |
+| Auth | Supabase Auth |
+| Storage | Supabase Storage (`content` bucket) |
+| Real-time | Supabase Realtime |
+| Deployment | Vercel |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+app/
+  dashboard/           Admin UI — screens, projects, content, schedules
+  display/[screenId]/  Public fullscreen display client
+  login/ register/     Auth pages
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+components/            Reusable UI components
+hooks/                 React hooks (useUser, useToast)
+lib/
+  supabase/            Browser + server Supabase clients
+  schedule-engine.ts   Pure TS schedule evaluation logic
+  app-url.ts           Centralized URL generation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+supabase/
+  migrations/          SQL migration files (apply in Supabase SQL Editor)
+```
+
+---
+
+## Key Features
+
+- **Multi-location support** — Organize screens by location with timezone-aware scheduling
+- **Playlist engine** — Ordered items with per-item duration and transitions
+- **Schedule system** — Auto-switch projects by time-of-day, day-of-week, and priority
+- **Push events** — Send instant commands to screens: reload, alert, sound, content override
+- **Real-time sync** — Changes appear on display within ~1 second via WebSocket
+- **PWA support** — Install display client as a fullscreen kiosk app
+- **Dark mode** — Light / dark / system theme switching
+- **Role-based access** — Owner → Admin → Editor → Viewer
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-side only) |
+| `NEXT_PUBLIC_APP_URL` | Your production domain (for display URL generation) |
+| `NEXT_PUBLIC_APP_NAME` | App name shown in browser tab (default: SignageHub) |
+
+---
+
+## Display Client Setup
+
+Each screen gets a unique **Display URL**:
+```
+https://your-app.com/display/<display-key-uuid>
+```
+
+1. Create a screen in the dashboard → copy the Display URL
+2. Open the URL in a browser on the physical display PC
+3. The browser displays content fullscreen, with cursor hiding and Wake Lock active
+4. Install as a PWA for no-chrome fullscreen kiosk mode
+
+---
+
+## Deployment
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+
+1. Push to GitHub
+2. Import into Vercel — Next.js is auto-detected
+3. Add all environment variables in Vercel dashboard
+4. Set `NEXT_PUBLIC_APP_URL` to your production domain
+
+---
+
+## Documentation
+
+See the full documentation:
+- [Architecture & Database Schema](./supabase/migrations/20240305000000_digital_signage_schema.sql)
+- Feature guides, troubleshooting, and deployment details are in the project docs artifact
+
+---
+
+## Troubleshooting
+
+**Stuck on skeleton loaders?** The new user's `organization_id` is null. Run in Supabase SQL Editor:
+```sql
+update public.profiles
+set organization_id = '<org-id>', role = 'owner'
+where id = (select id from auth.users where email = 'your@email.com');
+```
+
+**Display client shows blank?** Make sure Realtime is enabled on `screens`, `projects`, `playlist_items`, and `push_events` tables in Supabase.
+
+**Display URL not working in production?** Set `NEXT_PUBLIC_APP_URL` to your production domain, not `localhost`.
+
+---
+
+*Built with ♥ using Next.js 14 + Supabase*
