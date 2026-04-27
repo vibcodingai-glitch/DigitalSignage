@@ -286,21 +286,42 @@ export default function ContentLibraryPage() {
             const { data: { session } } = await supabase.auth.getSession()
             if (!session?.access_token) throw new Error("No active session token")
 
-            const payload = {
+            // Optimistic UI Update: Make it completely seamless
+            const tempId = `temp-${Date.now()}`
+            const optimisticItem = {
+                id: tempId,
                 organization_id: orgId,
                 name: linkForm.name,
                 type: linkForm.type,
                 source_url: linkForm.source_url,
-                duration_seconds: parseInt(String(linkForm.duration_seconds)) || 10
+                file_path: null,
+                file_size: null,
+                thumbnail_url: null,
+                metadata: {},
+                duration_seconds: parseInt(String(linkForm.duration_seconds)) || 10,
+                created_at: new Date().toISOString()
+            } as ContentItem
+            
+            setItems(prev => [optimisticItem, ...prev])
+            setIsLinkOpen(false)
+            setLinkForm({ name: "", type: "url", source_url: "", duration_seconds: 10 })
+            toast({ title: "Saving link in background..." })
+
+            const payload = {
+                organization_id: orgId,
+                name: optimisticItem.name,
+                type: optimisticItem.type,
+                source_url: optimisticItem.source_url,
+                duration_seconds: optimisticItem.duration_seconds
             };
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/content_items`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/content_items?select=*`, {
                 method: 'POST',
                 headers: {
                     'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
                     'Authorization': `Bearer ${session.access_token}`,
                     'Content-Type': 'application/json',
-                    'Prefer': 'return=minimal'
+                    'Prefer': 'return=representation'
                 },
                 body: JSON.stringify(payload)
             });
@@ -309,16 +330,19 @@ export default function ContentLibraryPage() {
                 const errText = await response.text();
                 throw new Error(`DB error: ${response.status} ${errText}`);
             }
-            toast({ title: "Link added successfully" })
-            setIsLinkOpen(false)
-            setLinkError(null)
-            setLinkForm({ name: "", type: "url", source_url: "", duration_seconds: 10 })
-            fetchContent()
+
+            // Replace temp item with real DB item
+            const [savedItem] = await response.json();
+            setItems(prev => prev.map(item => item.id === tempId ? savedItem : item))
+            toast({ title: "Link saved successfully" })
+            
         } catch (error) {
             const msg = (error as Error).message || 'Unknown error'
             console.error('[SaveLink] Error:', msg)
             setLinkError(msg)
             toast({ title: "Failed to add link", variant: "destructive", description: msg })
+            // Fetch content to restore correct state since optimistic update failed
+            fetchContent()
         } finally {
             setIsSavingLink(false)
         }
