@@ -73,7 +73,7 @@ function AcceptInviteContent() {
                 <div className="mx-auto bg-indigo-100 dark:bg-indigo-900/30 p-3 rounded-full w-14 h-14 flex items-center justify-center mb-4">
                     <MonitorPlay className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <CardTitle className="text-2xl font-bold">You've been invited to join SignageHub</CardTitle>
+                <CardTitle className="text-2xl font-bold">You&apos;ve been invited to join SignageHub</CardTitle>
                 <CardDescription className="text-base mt-2">
                     An organization administrator has invited you to collaborate on their digital signage network.
                 </CardDescription>

@@ -706,7 +706,7 @@ export default function PushEventsPage() {
                                 </SelectContent>
                             </Select>
                             <p className="text-xs text-slate-500">
-                                Display clients ignore events that have expired. Set to "Never" for permanent events.
+                                Display clients ignore events that have expired. Set to &quot;Never&quot; for permanent events.
                             </p>
                         </div>
 
