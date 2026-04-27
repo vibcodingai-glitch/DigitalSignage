@@ -280,13 +280,21 @@ export default function ContentLibraryPage() {
 
         setIsSavingLink(true)
         try {
-            const { error } = await supabase.from('content_items').insert({
+            console.log('[SaveLink] Payload:', { organization_id: orgId, name: linkForm.name, type: linkForm.type, source_url: linkForm.source_url })
+            
+            const insertPromise = supabase.from('content_items').insert({
                 organization_id: orgId,
                 name: linkForm.name,
                 type: linkForm.type,
                 source_url: linkForm.source_url,
                 duration_seconds: parseInt(String(linkForm.duration_seconds)) || 10
-            })
+            });
+            
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("Database timeout. The request took too long.")), 15000)
+            );
+            
+            const { error } = await Promise.race([insertPromise, timeoutPromise]) as any;
 
             if (error) {
                 console.error('[SaveLink] DB error:', error)
