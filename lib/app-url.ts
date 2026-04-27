@@ -9,14 +9,26 @@
  */
 
 export function getAppUrl(): string {
-    // Prefer env var (set in Vercel / .env.local)
-    if (process.env.NEXT_PUBLIC_APP_URL) {
-        return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
-    }
-    // Client-side fallback
+    // 1. Client-side: Always use the actual current origin to guarantee correct URLs
     if (typeof window !== "undefined") {
         return window.location.origin
     }
+
+    // 2. Server-side: Try user-defined custom domain
+    if (process.env.NEXT_PUBLIC_APP_URL) {
+        return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
+    }
+
+    // 3. Server-side: Try Vercel auto-generated system URL
+    if (process.env.NEXT_PUBLIC_VERCEL_URL) {
+        return `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    }
+    
+    if (process.env.VERCEL_URL) {
+        return `https://${process.env.VERCEL_URL}`
+    }
+
+    // 4. Local dev fallback
     return "http://localhost:3000"
 }
 
