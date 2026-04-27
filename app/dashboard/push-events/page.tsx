@@ -219,8 +219,11 @@ export default function PushEventsPage() {
     const executeSend = async () => {
         let orgId = profile?.organization_id
         if (!orgId) {
-            const { data } = await supabase.rpc('get_auth_user_organization_id')
-            orgId = data
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const { data } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+                if (data?.organization_id) orgId = data.organization_id
+            }
         }
         if (!orgId) {
             toast({ title: "Session not ready", description: "Please try again.", variant: "destructive" })
