@@ -282,23 +282,32 @@ export default function ContentLibraryPage() {
         try {
             console.log('[SaveLink] Payload:', { organization_id: orgId, name: linkForm.name, type: linkForm.type, source_url: linkForm.source_url })
             
-            const insertPromise = supabase.from('content_items').insert({
+            // Get session token directly to use raw fetch (bypassing supabase-js queuing bugs)
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session?.access_token) throw new Error("No active session token")
+
+            const payload = {
                 organization_id: orgId,
                 name: linkForm.name,
                 type: linkForm.type,
                 source_url: linkForm.source_url,
                 duration_seconds: parseInt(String(linkForm.duration_seconds)) || 10
-            });
-            
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error("Database timeout. The request took too long.")), 15000)
-            );
-            
-            const { error } = await Promise.race([insertPromise, timeoutPromise]) as any;
+            };
 
-            if (error) {
-                console.error('[SaveLink] DB error:', error)
-                throw error
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/content_items`, {
+                method: 'POST',
+                headers: {
+                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`DB error: ${response.status} ${errText}`);
             }
             toast({ title: "Link added successfully" })
             setIsLinkOpen(false)
