@@ -975,8 +975,8 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto w-full sm:w-auto">
-                    <div className="flex items-center space-x-2 border rounded-md p-1 pl-3 bg-slate-50 dark:bg-slate-900">
+                <div className="flex flex-wrap items-center gap-3 shrink-0 self-end sm:self-auto w-full md:w-auto mt-3 sm:mt-0">
+                    <div className="flex items-center space-x-2 border rounded-md p-1 pl-3 bg-slate-50 dark:bg-slate-900" onClick={e => e.stopPropagation()}>
                         <Label className="text-xs text-slate-500 font-mono tracking-wider">SEC</Label>
                         <Input
                             type="number"
@@ -988,7 +988,7 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
                     </div>
 
                     <Select value={item.transition_type} onValueChange={(v) => onUpdate({ transition_type: v })}>
-                        <SelectTrigger className="w-[120px] h-10">
+                        <SelectTrigger className="w-[110px] h-10" onClick={e => e.stopPropagation()}>
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -998,7 +998,7 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
                         </SelectContent>
                     </Select>
 
-                    <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 ml-1" onClick={onRemove}>
+                    <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 ml-1" onClick={(e) => { e.stopPropagation(); onRemove(); }}>
                         <Trash2 className="h-4 w-4" />
                     </Button>
                 </div>
