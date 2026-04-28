@@ -149,6 +149,7 @@ function getProxiedUrl(url: string, appUrl: string): string {
         }
 
         // 3. Same-origin check
+        if (!appUrl) return url;
         const appUrlObj = new URL(appUrl)
         if (urlObj.origin === appUrlObj.origin) {
             return url
