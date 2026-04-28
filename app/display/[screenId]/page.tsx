@@ -109,28 +109,13 @@ function getProxiedUrl(url: string, appUrl: string): string {
     try {
         const urlObj = new URL(url)
         
-        // 1. PowerBI — handles both "Publish to Web" and standard reports
-        // MUST come before proxying because PowerBI requires direct connection
+        // 1. PowerBI — always use the original URL directly.
+        // DO NOT convert to reportEmbed format because:
+        // - groupId=me is not valid for the reportEmbed API (causes 404)
+        // - The browser's existing Microsoft session handles auth automatically
+        // - Converting breaks the login redirect flow
         if (urlObj.hostname.includes('powerbi.com')) {
-            // "Publish to Web" (e.g. app.powerbi.com/view?r=...)
-            if (urlObj.pathname === '/view' && urlObj.searchParams.has('r')) {
-                return url
-            }
-
-            // Standard reports (convert to embed format)
-            const reportMatch = urlObj.pathname.match(/\/groups\/([^/]+)\/reports\/([^/]+)/)
-            const appMatch = urlObj.pathname.match(/\/groups\/([^/]+)\/apps\/([^/]+)\/reports\/([^/]+)/)
-            
-            if (reportMatch) {
-                return `https://app.powerbi.com/reportEmbed?reportId=${reportMatch[2]}&groupId=${reportMatch[1]}&autoAuth=true`
-            } else if (appMatch) {
-                return `https://app.powerbi.com/reportEmbed?reportId=${appMatch[3]}&groupId=${appMatch[1]}&autoAuth=true`
-            }
-            
-            // If it's already an embed URL, return as-is (do not proxy)
-            if (urlObj.pathname.startsWith('/reportEmbed')) {
-                return url
-            }
+            return url  // pass through untouched — let the browser + session handle it
         }
 
         // 2. Tableau Public — use their native embed URL directly
@@ -280,9 +265,15 @@ function ContentRenderer({
     const [isLoading, setIsLoading] = useState(true)
     const iframeRef = useRef<HTMLIFrameElement>(null)
 
-    // Detect blank/blocked proxy pages (same-origin access works because proxy serves from localhost)
+    // Detect blank/blocked proxy pages.
+    // IMPORTANT: For PowerBI and Microsoft domains we must NOT treat cross-origin
+    // exceptions as errors — the sign-in page IS cross-origin by design.
     const handleIframeLoad = useCallback(() => {
         setIsLoading(false)
+        // Skip body inspection for known auth/embed domains that are intentionally cross-origin
+        const isPowerBIOrMS = src.includes('powerbi.com') || src.includes('microsoft.com') || src.includes('microsoftonline.com')
+        if (isPowerBIOrMS) return
+
         try {
             const doc = iframeRef.current?.contentDocument
             if (!doc) return
@@ -293,7 +284,7 @@ function ContentRenderer({
                 setIframeError(true)
             }
         } catch {
-            // Cross-origin exception = content loaded from original domain without proxy
+            // Cross-origin exception for non-PowerBI = content loaded from original domain without proxy
             setIframeError(true)
         }
     }, [src])
@@ -431,7 +422,7 @@ function ContentRenderer({
                         ref={iframeRef}
                         src={iframeSrc}
                         className="w-full h-full border-none"
-                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox"
                         onError={() => setIframeError(true)}
                         onLoad={handleIframeLoad}
                         title={item.content_item.name}

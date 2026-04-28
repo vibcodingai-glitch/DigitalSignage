@@ -72,8 +72,8 @@ export async function GET(request: NextRequest) {
   }
 
   // Convert URLs to embeddable format
+  // PowerBI URLs are passed through untouched — groupId=me is not valid for reportEmbed API
   let fetchUrl = toTableauEmbedUrl(parsedUrl.toString())
-  fetchUrl = toPowerBIEmbedUrl(fetchUrl)
 
   try {
     const response = await fetch(fetchUrl, {
