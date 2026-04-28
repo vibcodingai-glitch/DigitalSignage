@@ -107,34 +107,44 @@ export const DashboardService = {
         });
     },
 
-    async getOverview() {
-        const [screens, activity, locationsCount, activeProjectsCount, itemsCount] = await Promise.all([
-            this.getScreens(),
-            supabase.from('screen_logs')
-                .select('id, event, created_at, details, screen_id')
-                .order('created_at', { ascending: false })
-                .limit(10),
+    async getStats() {
+        const [locationsCount, activeProjectsCount, itemsCount, screens] = await Promise.all([
             supabase.from('locations').select('*', { count: 'exact', head: true }),
             supabase.from('projects').select('*', { count: 'exact', head: true }).eq('is_active', true),
-            supabase.from('content_items').select('*', { count: 'exact', head: true })
+            supabase.from('content_items').select('*', { count: 'exact', head: true }),
+            supabase.from('screens').select('status, active_project_id')
         ]);
 
         return {
-            screens: {
-                total: screens.length,
-                online: screens.filter(s => s.status === 'online').length,
-                offline: screens.filter(s => s.status === 'offline').length,
-                unassigned: screens.filter(s => !s.project).length,
-            },
             locations: locationsCount.count || 0,
             projects: activeProjectsCount.count || 0,
             contentItems: itemsCount.count || 0,
-            recentScreens: screens.slice(0, 50),
-            recentActivity: (activity.data || []).map(log => ({
-                ...log,
-                screen: screens.find(s => s.id === log.screen_id) || null
-            }))
+            screens: {
+                total: (screens.data || []).length,
+                online: (screens.data || []).filter(s => s.status === 'online').length,
+                offline: (screens.data || []).filter(s => s.status === 'offline').length,
+                unassigned: (screens.data || []).filter(s => !s.active_project_id).length,
+            }
         };
+    },
+
+    async getRecentActivity() {
+        const { data: activity } = await supabase.from('screen_logs')
+            .select('id, event, created_at, details, screen_id')
+            .order('created_at', { ascending: false })
+            .limit(10);
+        
+        if (!activity || activity.length === 0) return [];
+
+        const screenIds = Array.from(new Set(activity.map(a => a.screen_id).filter(Boolean)));
+        const { data: screens } = await supabase.from('screens')
+            .select('id, name')
+            .in('id', screenIds);
+
+        return activity.map(log => ({
+            ...log,
+            screen: screens?.find(s => s.id === log.screen_id) || null
+        }));
     },
 
     async getProjectDetails(projectId: string) {

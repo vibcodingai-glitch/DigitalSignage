@@ -5,7 +5,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { formatDistanceToNow } from "date-fns"
-import { useOverview } from "@/hooks/use-dashboard"
+import { useStats, useScreens, useRecentActivity } from "@/hooks/use-dashboard"
 import { useToast } from "@/hooks/use-toast"
 
 import { Card, CardContent } from "@/components/ui/card"
@@ -61,14 +61,27 @@ const EMPTY_DATA: DashboardData = {
 
 export default function DashboardOverviewPage() {
     const { profile } = useUser()
-    const { data, isLoading, refresh } = useOverview()
+    const { data: stats, isLoading: statsLoading, refresh: refreshStats } = useStats()
+    const { data: screens, isLoading: screensLoading, refresh: refreshScreens } = useScreens()
+    const { data: activity, isLoading: activityLoading, refresh: refreshActivity } = useRecentActivity()
 
-    if (isLoading && !data) return <DashboardSkeleton />
+    const isLoading = (statsLoading || screensLoading) && (!stats || !screens)
+    
+    // Merge data safely for the existing UI components
+    const data = stats && screens ? {
+        ...stats,
+        recentScreens: screens.slice(0, 50),
+        recentActivity: activity || []
+    } : null
+
+    if (isLoading) return <DashboardSkeleton />
     if (!data) return null
 
-    const fetchDashboardData = () => refresh()
-
-
+    const fetchDashboardData = () => {
+        refreshStats()
+        refreshScreens()
+        refreshActivity()
+    }
 
     const onlinePct = data.screens.total > 0
         ? Math.round((data.screens.online / data.screens.total) * 100)
