@@ -273,9 +273,40 @@ function ContentRenderer({
     if (type === 'powerbi_frame' && src.includes('powerbi.com')) {
         try {
             const u = new URL(src)
-            if (!u.searchParams.has('action')) u.searchParams.set('action', 'embedview')
-            if (!u.searchParams.has('chromeless')) u.searchParams.set('chromeless', '1')
-            src = u.toString()
+            
+            // 1. Detect Standard Browser URL: /groups/{gid}/reports/{rid}
+            const reportMatch = u.pathname.match(/\/groups\/([^/]+)\/reports\/([^/]+)/)
+            const appReportMatch = u.pathname.match(/\/groups\/([^/]+)\/apps\/([^/]+)\/reports\/([^/]+)/)
+            
+            let groupId = ''
+            let reportId = ''
+            
+            if (reportMatch) {
+                groupId = reportMatch[1]
+                reportId = reportMatch[2]
+            } else if (appReportMatch) {
+                groupId = appReportMatch[1]
+                reportId = appReportMatch[3]
+            }
+
+            if (reportId) {
+                // Construct official Microsoft Embed URL
+                // Note: 'me' is a valid shortcut for personal workspace in the browser, 
+                // but the embed API often prefers the actual UUID or just omitting it.
+                const embedUrl = new URL('https://app.powerbi.com/reportEmbed')
+                embedUrl.searchParams.set('reportId', reportId)
+                if (groupId && groupId !== 'me') embedUrl.searchParams.set('groupId', groupId)
+                embedUrl.searchParams.set('autoAuth', 'true')
+                embedUrl.searchParams.set('ctid', u.searchParams.get('ctid') || '')
+                embedUrl.searchParams.set('chromeless', '1')
+                src = embedUrl.toString()
+            } else {
+                // Fallback: Just ensure parameters are there if it's already an embed link
+                if (!u.searchParams.has('action')) u.searchParams.set('action', 'embedview')
+                if (!u.searchParams.has('chromeless')) u.searchParams.set('chromeless', '1')
+                if (!u.searchParams.has('autoAuth')) u.searchParams.set('autoAuth', 'true')
+                src = u.toString()
+            }
         } catch {}
     }
 
