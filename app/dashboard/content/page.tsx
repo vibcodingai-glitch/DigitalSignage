@@ -83,8 +83,9 @@ function getEmbedUrl(url: string): string {
     try {
         const u = new URL(url)
         // PowerBI: add embedview action if missing
-        if (u.hostname.includes('powerbi.com') && !u.searchParams.has('action')) {
-            u.searchParams.set('action', 'embedview')
+        if (u.hostname.includes('powerbi.com')) {
+            if (!u.searchParams.has('action')) u.searchParams.set('action', 'embedview')
+            if (!u.searchParams.has('chromeless')) u.searchParams.set('chromeless', '1')
             return u.toString()
         }
         return url
