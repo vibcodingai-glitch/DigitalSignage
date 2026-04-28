@@ -114,7 +114,7 @@ export default function ScreenDetailPage({ params }: { params: { id: string } })
             // Reference lookups — run in parallel
             const [{ data: locs }, { data: projs }, { data: lg }, { data: pe }] = await Promise.all([
                 supabase.from('locations').select('id, name').order('name'),
-                supabase.from('projects').select('*').eq('screen_id', params.id).order('created_at', { ascending: false }),
+                supabase.from('projects').select('*').eq('organization_id', screenData.organization_id).order('created_at', { ascending: false }),
                 supabase.from('screen_logs').select('*').eq('screen_id', params.id).order('created_at', { ascending: false }).limit(20),
                 supabase.from('push_events').select('*, created_by:profiles(full_name)').eq('screen_id', params.id).order('created_at', { ascending: false }).limit(10)
             ])

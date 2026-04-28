@@ -82,7 +82,7 @@ export function AssignProjectDialog({
 
   // Load available projects
   useEffect(() => {
-    if (!open) return
+    if (!open || !organizationId) return
     const load = async () => {
       const { data } = await supabase
         .from("projects")
