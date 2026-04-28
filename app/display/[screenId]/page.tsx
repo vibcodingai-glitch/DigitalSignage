@@ -248,147 +248,7 @@ function TableauVizEmbed({ url, onLoaded }: { url: string, onLoaded?: () => void
 // and surfaces a "Sign in" button that opens a real browser tab,
 // then lets the user retry the iframe once they're authenticated.
 // ==============================================================
-function PowerBIIframeRenderer({
-    baseClass, src, iframeSrc, isPowerBI, name
-}: {
-    baseClass: string
-    src: string
-    iframeSrc: string
-    isPowerBI: boolean
-    name: string
-}) {
-    const iframeRef = useRef<HTMLIFrameElement>(null)
-    const [needsAuth, setNeedsAuth] = useState(false)
-    const [iframeKey, setIframeKey] = useState(0)
-    const [isLoading, setIsLoading] = useState(true)
-    const pollRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Auth URL patterns — Microsoft login domains
-    const MS_AUTH_PATTERNS = [
-        'login.microsoftonline.com',
-        'login.microsoft.com',
-        'login.live.com',
-        'account.microsoft.com',
-        'app.powerbi.com/signin',
-    ]
-
-    const isAuthUrl = (url: string) => MS_AUTH_PATTERNS.some(p => url.includes(p))
-
-    // Poll the iframe src to detect silent auth redirect
-    const startPolling = useCallback(() => {
-        if (pollRef.current) clearInterval(pollRef.current)
-        pollRef.current = setInterval(() => {
-            try {
-                const iframeUrl = iframeRef.current?.contentWindow?.location?.href
-                if (iframeUrl && isAuthUrl(iframeUrl)) {
-                    console.log('[Display] PowerBI auth redirect detected:', iframeUrl)
-                    setNeedsAuth(true)
-                    if (pollRef.current) clearInterval(pollRef.current)
-                }
-            } catch {
-                // Cross-origin = report is loading normally (good!) or auth page (detected by onLoad)
-            }
-        }, 1000)
-    }, [])
-
-    useEffect(() => {
-        startPolling()
-        return () => { if (pollRef.current) clearInterval(pollRef.current) }
-    }, [startPolling, iframeKey])
-
-    const handleLoad = useCallback(() => {
-        setIsLoading(false)
-        // Check immediately on load if we landed on an auth page
-        try {
-            const iframeUrl = iframeRef.current?.contentWindow?.location?.href
-            if (iframeUrl && isAuthUrl(iframeUrl)) {
-                setNeedsAuth(true)
-            }
-        } catch { /* cross-origin is fine — means report loaded */ }
-    }, [])
-
-    const handleSignIn = () => {
-        // Open PowerBI in a real tab so Microsoft's OAuth can complete
-        window.open('https://app.powerbi.com', '_blank', 'noopener')
-    }
-
-    const handleRetry = () => {
-        setNeedsAuth(false)
-        setIsLoading(true)
-        setIframeKey(k => k + 1)
-    }
-
-    return (
-        <div className={`${baseClass} bg-gray-950`}>
-            {/* Always keep the iframe mounted so it loads in the background */}
-            <iframe
-                key={iframeKey}
-                ref={iframeRef}
-                src={iframeSrc}
-                className={`w-full h-full border-none transition-opacity duration-300 ${needsAuth ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-top-navigation allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox"
-                onLoad={handleLoad}
-                title={name}
-            />
-
-            {/* Loading spinner — only before first load */}
-            {isLoading && !needsAuth && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-950 z-10 pointer-events-none">
-                    <MonitorPlay className="h-8 w-8 text-indigo-500/20 animate-pulse" />
-                </div>
-            )}
-
-            {/* Auth-required overlay — shown when Microsoft blocks the iframe login */}
-            {needsAuth && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a14] gap-8">
-                    {/* PowerBI logo area */}
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="relative">
-                            <div className="absolute inset-0 rounded-2xl bg-yellow-400/20 animate-pulse" />
-                            <div className="relative h-20 w-20 rounded-2xl bg-[#1a1a2e] border border-yellow-400/30 flex items-center justify-center shadow-2xl">
-                                {/* PowerBI-style icon */}
-                                <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none">
-                                    <rect x="2" y="14" width="4" height="8" rx="1" fill="#F2C811"/>
-                                    <rect x="8" y="9" width="4" height="13" rx="1" fill="#F2C811" opacity="0.8"/>
-                                    <rect x="14" y="4" width="4" height="18" rx="1" fill="#F2C811" opacity="0.6"/>
-                                    <rect x="20" y="1" width="2" height="21" rx="1" fill="#F2C811" opacity="0.4"/>
-                                </svg>
-                            </div>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-white font-bold text-xl">{name}</p>
-                            <p className="text-slate-400 text-sm mt-1">Microsoft sign-in required</p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-                        <p className="text-slate-300 text-sm leading-relaxed">
-                            Microsoft blocks sign-in inside embedded frames for security.
-                            Sign in using the button below, then click <strong className="text-white">Retry</strong> to load your report.
-                        </p>
-
-                        <button
-                            onClick={handleSignIn}
-                            className="mt-2 w-full px-6 py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-xl transition-all shadow-lg shadow-yellow-400/20 text-sm flex items-center justify-center gap-2"
-                        >
-                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                                <path d="M11.5 2C6.25 2 2 6.25 2 11.5S6.25 21 11.5 21c.92 0 1.81-.12 2.67-.34l.83.83V23h2v-2h2v-2h1.5L22 17.5V12h-2v-1c0-.55-.45-1-1-1h-2.5C16.05 6.57 14.04 2 11.5 2zm0 2c1.76 0 3.23 1.38 3.44 3.13L15 7.5V9H9V7.5c0-1.38 1.12-3.5 2.5-3.5zM9.5 11c.83 0 1.5.67 1.5 1.5S10.33 14 9.5 14 8 13.33 8 12.5 8.67 11 9.5 11zm4 0c.83 0 1.5.67 1.5 1.5S14.33 14 13.5 14 12 13.33 12 12.5 12.67 11 13.5 11z"/>
-                            </svg>
-                            Sign in to Microsoft / PowerBI
-                        </button>
-
-                        <button
-                            onClick={handleRetry}
-                            className="w-full px-6 py-2.5 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-medium rounded-xl transition-all border border-white/10 text-sm"
-                        >
-                            ↺  Retry (after signing in)
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    )
-}
 
 // ==============================================================
 // CONTENT RENDERER SUB-COMPONENT
@@ -550,17 +410,37 @@ function ContentRenderer({
             : (process.env.NEXT_PUBLIC_APP_URL || currentOrigin)
 
         const iframeSrc = getProxiedUrl(src, appUrl)
-        const isPowerBI = src.includes('powerbi.com')
+        const isPowerBI = src.includes('powerbi.com') || type === 'powerbi'
+        if (isPowerBI) return null // Handled by relay
 
         return (
-            <PowerBIIframeRenderer
-                key={item.id}
-                baseClass={baseClass}
-                src={src}
-                iframeSrc={iframeSrc}
-                isPowerBI={isPowerBI}
-                name={item.content_item.name}
-            />
+            <div key={item.id} className={`${baseClass} bg-gray-950`}>
+                {iframeError ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-950 text-white gap-6">
+                        <div className="relative">
+                            <div className="absolute inset-0 rounded-full bg-amber-500/20 animate-ping" />
+                            <div className="h-16 w-16 rounded-full bg-gray-900 border border-amber-500/30 flex items-center justify-center relative">
+                                <AlertTriangle className="h-8 w-8 text-amber-500" />
+                            </div>
+                        </div>
+                        <div className="text-center space-y-2">
+                            <p className="text-lg font-semibold text-white/80">{item.content_item.name}</p>
+                            <p className="text-sm text-gray-400 font-mono">This URL cannot be embedded</p>
+                            <p className="text-xs text-gray-600 font-mono max-w-sm text-center break-all px-6">{src}</p>
+                        </div>
+                    </div>
+                ) : (
+                    <iframe
+                        ref={iframeRef}
+                        src={iframeSrc}
+                        className="w-full h-full border-none"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-top-navigation allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox"
+                        onError={() => setIframeError(true)}
+                        onLoad={handleIframeLoad}
+                        title={item.content_item.name}
+                    />
+                )}
+            </div>
         )
     }
 
@@ -887,11 +767,19 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
     }, [])
 
     // ==============================================================
-    // BOOT
+    // BOOT & KIOSK AUTO-RECOVERY
     // ==============================================================
     useEffect(() => {
         loadSequence(params.screenId)
         requestWakeLock()
+
+        // Phase 7: Kiosk auto-open for PowerBI relay
+        const urlParams = new URLSearchParams(window.location.search)
+        if (urlParams.get('kiosk') === 'true') {
+            console.log('[Kiosk] Auto-opening PowerBI relay on boot')
+            relay.openRelay()
+            setShowRelayTrigger(false)
+        }
 
         // Re-acquire wake lock on visibility change
         const onVisChange = () => {
