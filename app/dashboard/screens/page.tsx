@@ -327,7 +327,7 @@ export default function ScreensPage() {
                                     <div className="absolute top-2 right-2">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" className="h-7 w-7 p-0 bg-black/40 hover:bg-black/60 text-white/70 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                                                <Button variant="ghost" className="h-7 w-7 p-0 bg-black/40 hover:bg-black/60 text-white transition-opacity rounded-lg opacity-70 hover:opacity-100">
                                                     <MoreVertical className="h-3.5 w-3.5" />
                                                 </Button>
                                             </DropdownMenuTrigger>
