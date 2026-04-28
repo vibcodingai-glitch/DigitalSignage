@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 
 /**
  * Converts a Tableau Public URL to its embeddable format.
