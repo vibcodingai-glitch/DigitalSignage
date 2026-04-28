@@ -1,42 +1,27 @@
-import { useState, useCallback, useEffect } from "react";
-import { DashboardService, Screen, Location, Project } from "@/lib/services/dashboard";
-import { useToast } from "@/hooks/use-toast";
+import useSWR from "swr";
+import { DashboardService } from "@/lib/services/dashboard";
 
-export function useDashboardData<T>(fetchFn: () => Promise<T>, deps: any[] = []) {
-    const [data, setData] = useState<T | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-    const { toast } = useToast();
+/**
+ * Agile Data Hook: Uses SWR for caching and background revalidation.
+ * Makes the dashboard feel "instant" by showing stale data while updating.
+ */
+function useDashboardData<T>(key: string, fetchFn: () => Promise<T>) {
+    const { data, error, isLoading, mutate } = useSWR(key, fetchFn, {
+        revalidateOnFocus: false,
+        dedupingInterval: 5000, // 5 seconds
+    });
 
-    const load = useCallback(async (silent = false) => {
-        if (!silent) setIsLoading(true);
-        try {
-            const result = await fetchFn();
-            setData(result);
-            setError(null);
-        } catch (err) {
-            console.error("Dashboard Data Fetch Error:", err);
-            setError(err as Error);
-            toast({
-                title: "Data Sync Failed",
-                description: "We're having trouble connecting to the database. Retrying...",
-                variant: "destructive"
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [toast, ...deps]);
-
-    useEffect(() => {
-        load();
-    }, [load]);
-
-    return { data, isLoading, error, refresh: () => load(true) };
+    return {
+        data: data || null,
+        isLoading: isLoading && !data, // Only show loading if we have no cached data
+        error,
+        refresh: () => mutate()
+    };
 }
 
-export const useScreens = () => useDashboardData(DashboardService.getScreens);
-export const useLocations = () => useDashboardData(DashboardService.getLocations);
-export const useProjects = () => useDashboardData(DashboardService.getProjects);
-export const useOverview = () => useDashboardData(() => DashboardService.getOverview());
-export const useProjectDetails = (projectId: string) => useDashboardData(() => DashboardService.getProjectDetails(projectId), [projectId]);
+export const useScreens = () => useDashboardData("dashboard-screens", DashboardService.getScreens);
+export const useLocations = () => useDashboardData("dashboard-locations", DashboardService.getLocations);
+export const useProjects = () => useDashboardData("dashboard-projects", DashboardService.getProjects);
+export const useOverview = () => useDashboardData("dashboard-overview", () => DashboardService.getOverview());
+export const useProjectDetails = (projectId: string) => 
+    useDashboardData(`project-details-${projectId}`, () => DashboardService.getProjectDetails(projectId));

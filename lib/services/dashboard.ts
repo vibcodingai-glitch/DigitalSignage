@@ -42,18 +42,24 @@ export interface Project {
  * Bypasses RLS Join recursion by using flat fetches and in-memory joins.
  */
 export const DashboardService = {
-    async getScreens(): Promise<Screen[]> {
+    async getScreens(): Promise<{ screens: Screen[], locations: any[], projects: any[] }> {
         const [{ data: screens }, { data: locations }, { data: projects }] = await Promise.all([
             supabase.from('screens').select('*').order('name'),
             supabase.from('locations').select('id, name'),
             supabase.from('projects').select('id, name')
         ]);
 
-        return (screens || []).map(s => ({
+        const mappedScreens = (screens || []).map(s => ({
             ...s,
             location: locations?.find(l => l.id === s.location_id) || null,
             project: projects?.find(p => p.id === s.active_project_id) || null
         }));
+
+        return {
+            screens: mappedScreens,
+            locations: locations || [],
+            projects: projects || []
+        };
     },
 
     async getLocations(): Promise<Location[]> {
@@ -102,15 +108,15 @@ export const DashboardService = {
     },
 
     async getOverview() {
-        const [screens, locations, projects, items, activity] = await Promise.all([
+        const [screens, activity, locationsCount, activeProjectsCount, itemsCount] = await Promise.all([
             this.getScreens(),
-            supabase.from('locations').select('id'),
-            supabase.from('projects').select('id').eq('is_active', true),
-            supabase.from('content_items').select('id'),
             supabase.from('screen_logs')
                 .select('id, event, created_at, details, screen_id')
                 .order('created_at', { ascending: false })
-                .limit(10)
+                .limit(10),
+            supabase.from('locations').select('*', { count: 'exact', head: true }),
+            supabase.from('projects').select('*', { count: 'exact', head: true }).eq('is_active', true),
+            supabase.from('content_items').select('*', { count: 'exact', head: true })
         ]);
 
         return {
@@ -120,9 +126,9 @@ export const DashboardService = {
                 offline: screens.filter(s => s.status === 'offline').length,
                 unassigned: screens.filter(s => !s.project).length,
             },
-            locations: (locations.data || []).length,
-            projects: (projects.data || []).length,
-            contentItems: (items.data || []).length,
+            locations: locationsCount.count || 0,
+            projects: activeProjectsCount.count || 0,
+            contentItems: itemsCount.count || 0,
             recentScreens: screens.slice(0, 50),
             recentActivity: (activity.data || []).map(log => ({
                 ...log,

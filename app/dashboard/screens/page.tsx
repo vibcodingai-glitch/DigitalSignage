@@ -49,15 +49,8 @@ export default function ScreensPage() {
     const { toast } = useToast()
 
     const { data: screensData, isLoading: isFetching, refresh: fetchData } = useScreens()
-    const screens = screensData || []
-
-    // Fetch locations for the create form
-    const [locations, setLocations] = useState<Location[]>([])
-    useEffect(() => {
-        supabase.from('locations').select('id, name').then(({ data }) => {
-            if (data) setLocations(data as Location[])
-        })
-    }, [supabase])
+    const screens = screensData?.screens || []
+    const locations = screensData?.locations || []
 
     // Filters
     const [searchQuery, setSearchQuery] = useState("")

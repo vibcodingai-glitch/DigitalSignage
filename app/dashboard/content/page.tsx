@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { format } from "date-fns"
 import { useDropzone } from "react-dropzone"
+import { useContent } from "@/hooks/use-content"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -155,8 +156,14 @@ export default function ContentLibraryPage() {
     const supabase = createClient()
     const { toast } = useToast()
 
+    const { data: itemsData, isLoading: isFetching, refresh: fetchContent } = useContent()
     const [items, setItems] = useState<ContentItem[]>([])
-    const [isFetching, setIsFetching] = useState(true)
+    
+    // Sync SWR data to local state for optimistic updates
+    useEffect(() => {
+        if (itemsData) setItems(itemsData)
+    }, [itemsData])
+
     const [searchQuery, setSearchQuery] = useState("")
     const [selectedTab, setSelectedTab] = useState("all")
 
@@ -182,28 +189,6 @@ export default function ContentLibraryPage() {
     // Upload Form State
     const [uploadFiles, setUploadFiles] = useState<{ file: File, progress: number, status: 'pending' | 'uploading' | 'success' | 'error', error?: string, duration: number, name: string }[]>([])
     const [isUploading, setIsUploading] = useState(false)
-
-    const fetchContent = useCallback(async () => {
-        setIsFetching(true)
-        try {
-            const { data, error } = await supabase
-                .from('content_items')
-                .select('*')
-                .order('created_at', { ascending: false })
-
-            if (error) throw error
-            setItems(data as ContentItem[])
-        } catch (error) {
-            toast({ title: "Failed to load content", variant: "destructive", description: (error as Error).message })
-        } finally {
-            setIsFetching(false)
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-    useEffect(() => {
-        fetchContent()
-    }, [fetchContent])
 
     // Multi-select actions
     const toggleSelectAll = () => {
