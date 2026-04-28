@@ -63,49 +63,45 @@ export default function DashboardOverviewPage() {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
 
-            {/* Welcome banner */}
-            {!stats && statsLoading ? (
-                <Skeleton className="h-28 rounded-2xl bg-slate-200 dark:bg-white/5" />
-            ) : (
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-700 to-violet-800 p-6 text-white shadow-xl shadow-blue-500/20">
-                    <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-                    <div className="relative flex items-center justify-between gap-6">
-                        <div>
-                            <p className="text-blue-200 text-sm font-medium mb-1">Welcome back 👋</p>
-                            <h2 className="text-2xl font-bold tracking-tight">
-                                {profile?.full_name?.split(' ')[0] || 'Admin'}
-                            </h2>
-                            <p className="text-blue-200 text-sm mt-1">
-                                Your network has <span className="font-semibold text-white">{stats?.screens.online || 0} screen{(stats?.screens.online || 0) !== 1 ? 's' : ''}</span> broadcasting live right now.
-                            </p>
+            {/* Welcome banner — always render, show zeros until data arrives */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-700 to-violet-800 p-6 text-white shadow-xl shadow-blue-500/20">
+                <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+                <div className="relative flex items-center justify-between gap-6">
+                    <div>
+                        <p className="text-blue-200 text-sm font-medium mb-1">Welcome back 👋</p>
+                        <h2 className="text-2xl font-bold tracking-tight">
+                            {profile?.full_name?.split(' ')[0] || 'Admin'}
+                        </h2>
+                        <p className="text-blue-200 text-sm mt-1">
+                            Your network has <span className="font-semibold text-white">{stats?.screens.online || 0} screen{(stats?.screens.online || 0) !== 1 ? 's' : ''}</span> broadcasting live right now.
+                        </p>
+                    </div>
+                    <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                        <div className="flex items-center gap-2 text-sm">
+                            <span className="text-blue-200">Network health</span>
+                            <span className="text-white font-bold text-lg">{onlinePct}%</span>
                         </div>
-                        <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
-                            <div className="flex items-center gap-2 text-sm">
-                                <span className="text-blue-200">Network health</span>
-                                <span className="text-white font-bold text-lg">{onlinePct}%</span>
-                            </div>
-                            <div className="w-40 h-2 bg-white/20 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-white rounded-full transition-all duration-700"
-                                    style={{ width: `${onlinePct}%` }}
-                                    suppressHydrationWarning
-                                />
-                            </div>
-                            <span className="text-blue-200 text-xs">{stats?.screens.online || 0} / {stats?.screens.total || 0} online</span>
+                        <div className="w-40 h-2 bg-white/20 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-white rounded-full transition-all duration-700"
+                                style={{ width: `${onlinePct}%` }}
+                                suppressHydrationWarning
+                            />
                         </div>
+                        <span className="text-blue-200 text-xs">{stats?.screens.online || 0} / {stats?.screens.total || 0} online</span>
                     </div>
                 </div>
-            )}
+            </div>
 
-            {/* KPI Cards */}
+            {/* KPI Cards — always render immediately with zeros until data arrives */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {!stats && statsLoading ? (
+                {statsLoading && !stats ? (
                     [1, 2, 3, 4].map(i => (
-                        <Card key={i} className="border-slate-200 dark:border-white/5">
+                        <Card key={i} className="border-slate-200 dark:border-slate-800">
                             <CardContent className="p-5 space-y-3">
-                                <Skeleton className="h-10 w-10 rounded-xl" />
-                                <Skeleton className="h-8 w-16" />
-                                <Skeleton className="h-4 w-24" />
+                                <Skeleton className="h-10 w-10 rounded-xl bg-slate-200 dark:bg-slate-800" />
+                                <Skeleton className="h-8 w-16 bg-slate-200 dark:bg-slate-800" />
+                                <Skeleton className="h-4 w-24 bg-slate-200 dark:bg-slate-800" />
                             </CardContent>
                         </Card>
                     ))
@@ -210,14 +206,14 @@ export default function DashboardOverviewPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-                                    {!screens && screensLoading ? (
+                                    {screensLoading && !screens ? (
                                         Array(5).fill(0).map((_, i) => (
                                             <tr key={i}>
-                                                <td className="pl-4 pr-2 py-2.5"><Skeleton className="h-4 w-16" /></td>
-                                                <td className="px-2 py-2.5"><Skeleton className="h-4 w-32" /></td>
-                                                <td className="px-2 py-2.5 hidden sm:table-cell"><Skeleton className="h-4 w-24" /></td>
-                                                <td className="px-2 py-2.5 hidden md:table-cell"><Skeleton className="h-4 w-24" /></td>
-                                                <td className="px-2 pr-4 py-2.5 text-right hidden lg:table-cell"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                                                <td className="pl-4 pr-2 py-2.5"><Skeleton className="h-4 w-16 bg-slate-200 dark:bg-slate-800" /></td>
+                                                <td className="px-2 py-2.5"><Skeleton className="h-4 w-32 bg-slate-200 dark:bg-slate-800" /></td>
+                                                <td className="px-2 py-2.5 hidden sm:table-cell"><Skeleton className="h-4 w-24 bg-slate-200 dark:bg-slate-800" /></td>
+                                                <td className="px-2 py-2.5 hidden md:table-cell"><Skeleton className="h-4 w-24 bg-slate-200 dark:bg-slate-800" /></td>
+                                                <td className="px-2 pr-4 py-2.5 text-right hidden lg:table-cell"><Skeleton className="h-4 w-20 ml-auto bg-slate-200 dark:bg-slate-800" /></td>
                                             </tr>
                                         ))
                                     ) : (screens || []).length === 0 ? (
