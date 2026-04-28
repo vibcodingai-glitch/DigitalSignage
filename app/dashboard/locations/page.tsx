@@ -5,6 +5,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { format } from "date-fns"
+import { useLocations } from "@/hooks/use-dashboard"
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -49,8 +50,9 @@ export default function LocationsPage() {
     const supabase = createClient()
     const { toast } = useToast()
 
-    const [locations, setLocations] = useState<Location[]>([])
-    const [isFetching, setIsFetching] = useState(true)
+    const { data: locationsData, isLoading: isFetching, refresh: fetchLocations } = useLocations()
+    const locations = locationsData || []
+
     const [searchQuery, setSearchQuery] = useState("")
     const [viewMode, setViewMode] = useState<"list" | "grid">("list")
 
@@ -71,50 +73,6 @@ export default function LocationsPage() {
         country: "",
         timezone: "UTC"
     })
-
-    const fetchLocations = useCallback(async () => {
-        setIsFetching(true)
-        try {
-            // 1. Fetch locations and screens separately to avoid nested RLS join recursion
-            const [{ data: locData, error: locError }, { data: screensData, error: screensError }] = await Promise.all([
-                supabase
-                    .from('locations')
-                    .select('id, name, address, city, country, timezone, created_at')
-                    .order('name'),
-                supabase
-                    .from('screens')
-                    .select('id, location_id')
-            ])
-
-            if (locError) throw locError
-            if (screensError) throw screensError
-
-            // 2. Compute screen counts in memory
-            const enrichedLocations = (locData || []).map((loc: any) => {
-                const screenCount = (screensData || []).filter(s => s.location_id === loc.id).length
-                return {
-                    ...loc,
-                    screens: [{ count: screenCount }]
-                }
-            })
-
-            setLocations(enrichedLocations as Location[])
-        } catch (error) {
-            if ((error as Error).name === 'AbortError') return
-            toast({
-                title: "Error loading locations",
-                description: (error as Error).message,
-                variant: "destructive"
-            })
-        } finally {
-            setIsFetching(false)
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-    useEffect(() => {
-        fetchLocations()
-    }, [fetchLocations])
 
     const filteredLocations = locations.filter(loc =>
         loc.name.toLowerCase().includes(searchQuery.toLowerCase())

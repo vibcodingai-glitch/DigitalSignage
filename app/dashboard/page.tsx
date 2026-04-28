@@ -5,6 +5,8 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { formatDistanceToNow } from "date-fns"
+import { useOverview } from "@/hooks/use-dashboard"
+import { useToast } from "@/hooks/use-toast"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -59,80 +61,11 @@ const EMPTY_DATA: DashboardData = {
 
 export default function DashboardOverviewPage() {
     const { profile } = useUser()
-    const supabase = createClient()
-    const [data, setData] = useState<DashboardData>(EMPTY_DATA)
-    const [isFetching, setIsFetching] = useState(true)
+    const { data, isLoading } = useOverview()
 
-    const fetchDashboardData = useCallback(async () => {
-        setIsFetching(true)
-        try {
-            // 1. Fetch all base data in parallel without any nested RLS joins
-            const [
-                { data: screensBase },
-                { data: locationsBase },
-                { data: projectsBase },
-                { data: contentBase },
-                { data: activityBase }
-            ] = await Promise.all([
-                supabase.from('screens').select('id, name, status, resolution, last_heartbeat, location_id, active_project_id'),
-                supabase.from('locations').select('id, name'),
-                supabase.from('projects').select('id, name, is_active'),
-                supabase.from('content_items').select('id'),
-                supabase.from('screen_logs')
-                    .select('id, event, created_at, details, screen_id')
-                    .order('created_at', { ascending: false })
-                    .limit(10)
-            ])
+    if (isLoading && !data) return <DashboardSkeleton />
+    if (!data) return null
 
-            const screens = screensBase || []
-            const locations = locationsBase || []
-            const projects = projectsBase || []
-            const contentItems = contentBase || []
-            const activityLogs = activityBase || []
-
-            // 2. Map relations in memory
-            const enrichedScreens: RecentScreen[] = screens.map(s => ({
-                id: s.id,
-                name: s.name,
-                status: s.status,
-                resolution: s.resolution,
-                last_heartbeat: s.last_heartbeat,
-                location: locations.find(l => l.id === s.location_id) || null,
-                project: projects.find(p => p.id === s.active_project_id) || null
-            }))
-
-            const enrichedActivity: RecentActivity[] = activityLogs.map(log => ({
-                id: log.id,
-                event: log.event,
-                created_at: log.created_at,
-                details: log.details as Record<string, unknown>,
-                screen: screens.find(s => s.id === log.screen_id) || null
-            }))
-
-            setData({
-                screens: {
-                    total: screens.length,
-                    online: screens.filter(s => s.status === 'online').length,
-                    offline: screens.filter(s => s.status === 'offline').length,
-                    unassigned: enrichedScreens.filter(s => !s.project).length,
-                },
-                locations: locations.length,
-                projects: projects.filter(p => p.is_active).length,
-                contentItems: contentItems.length,
-                recentScreens: enrichedScreens,
-                recentActivity: enrichedActivity
-            })
-        } catch (error) {
-            console.error("Error fetching dashboard data:", error)
-        } finally {
-            setIsFetching(false)
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-    useEffect(() => {
-        fetchDashboardData()
-    }, [fetchDashboardData])
 
 
     const onlinePct = data.screens.total > 0

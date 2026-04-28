@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
+import { useProjectDetails } from "@/hooks/use-dashboard"
 import {
     DndContext,
     closestCenter,
@@ -88,6 +89,8 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
     const supabase = createClient()
     const { toast } = useToast()
 
+    const { data: detailData, isLoading, refresh: fetchData } = useProjectDetails(params.id)
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [project, setProject] = useState<any>(null)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,7 +115,6 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [schedules, setSchedules] = useState<any[]>([])
 
-    const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [unsavedChanges, setUnsavedChanges] = useState(false)
     const [activeId, setActiveId] = useState<string | null>(null)
@@ -120,6 +122,17 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
     const [pushingToScreen, setPushingToScreen] = useState(false)
     const [selectedPlaylistIndex, setSelectedPlaylistIndex] = useState<number | null>(null)
     const [activeZoneIndex, setActiveZoneIndex] = useState(0)
+
+    useEffect(() => {
+        if (detailData) {
+            setProject(detailData.project)
+            setScreen(detailData.screen)
+            setPlaylist(detailData.playlist)
+            setSchedules(detailData.schedules)
+            setLibraryItems(detailData.library)
+            setSettings(detailData.project.settings || { loop: true, transition_type: "fade", default_duration: 10 })
+        }
+    }, [detailData])
 
     const currentLayoutType = project?.layout_type || 'fullscreen';
     const activeZones = ZONE_CONFIG[currentLayoutType] || ZONE_CONFIG.fullscreen;
@@ -135,77 +148,6 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
             .filter(item => item.zone_index === activeZoneIndex)
             .sort((a, b) => a.order_index - b.order_index)
     }, [playlist, activeZoneIndex])
-
-    // Load Data
-    const fetchData = useCallback(async () => {
-        setIsLoading(true)
-
-        try {
-            // Fetch Project + Playlist + Schedules + Library in parallel
-            const [{ data: projData, error: projError }, { data: plData, error: plError }, { data: schedData }, { data: libData, error: libError }] = await Promise.all([
-                supabase
-                    .from('projects')
-                    .select('*, screen:screens!projects_screen_id_fkey(*)')
-                    .eq('id', params.id)
-                    .single(),
-                supabase
-                    .from('playlist_items')
-                    .select('id, content_item_id, order_index, duration_override, transition_type, zone_index, content_item:content_items(*)')
-                    .eq('project_id', params.id)
-                    .order('zone_index', { ascending: true })
-                    .order('order_index', { ascending: true }),
-                supabase
-                    .from('schedules')
-                    .select('*')
-                    .eq('project_id', params.id)
-                    .order('priority', { ascending: false }),
-                supabase
-                    .from('content_items')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-            ])
-
-            if (projError) throw projError
-            if (plError) throw plError
-            if (libError) throw libError
-
-            setProject(projData)
-            setSettings(projData.settings || { loop: true, transition_type: "fade", default_duration: 10 })
-
-            if (projData.screen) {
-                setScreen(projData.screen)
-            } else if (projData.screen_id) {
-                const { data: sData } = await supabase.from('screens').select('*').eq('id', projData.screen_id).single()
-                setScreen(sData)
-            }
-
-            const formattedPlaylist = (plData || []).map(item => ({
-                id: item.id,
-                playlist_item_id: item.id,
-                content_item_id: item.content_item_id,
-                order_index: item.order_index,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                duration_override: item.duration_override || (item.content_item as any)?.duration_seconds || 10,
-                transition_type: item.transition_type || projData.settings?.transition_type || "fade",
-                content_item: Array.isArray(item.content_item) ? item.content_item[0] : item.content_item,
-                zone_index: item.zone_index || 0
-            }))
-            setPlaylist(formattedPlaylist)
-
-            if (schedData) setSchedules(schedData)
-            if (libData) setLibraryItems(libData)
-
-        } catch (error) {
-            toast({ title: "Failed to load project", variant: "destructive", description: (error as Error).message })
-        } finally {
-            setIsLoading(false)
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [params.id])
-
-    useEffect(() => {
-        fetchData()
-    }, [fetchData])
 
     // ── Keyboard shortcuts ──────────────────────────────────────────
     useEffect(() => {

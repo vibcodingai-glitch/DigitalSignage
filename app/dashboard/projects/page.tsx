@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { format } from "date-fns"
+import { useProjects, useScreens } from "@/hooks/use-dashboard"
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -26,12 +27,12 @@ export default function ProjectsListPage() {
     const { toast } = useToast()
     const router = useRouter()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [projects, setProjects] = useState<any[]>([])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [screens, setScreens] = useState<any[]>([])
+    const { data: projectsData, isLoading: isFetching, refresh: fetchProjects } = useProjects()
+    const { data: screensData } = useScreens()
+    
+    const projects = projectsData || []
+    const screens = screensData || []
 
-    const [isFetching, setIsFetching] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
     const [screenFilter, setScreenFilter] = useState("all")
     const [activeFilter, setActiveFilter] = useState("all")
@@ -44,77 +45,6 @@ export default function ProjectsListPage() {
         screen_id: "unassigned",
         copy_from_id: "none"
     })
-
-    const fetchProjects = useCallback(async () => {
-        setIsFetching(true)
-        try {
-            // 1. Fetch base projects and screens without complex nested RLS joins
-            const [{ data: projectsData, error: projectsError }, { data: screensData }] = await Promise.all([
-                supabase
-                    .from('projects')
-                    .select('*, screen:screens!projects_screen_id_fkey(id, name)')
-                    .order('created_at', { ascending: false }),
-                supabase
-                    .from('screens')
-                    .select('id, name')
-                    .order('name')
-            ])
-
-            if (projectsError) throw projectsError
-
-            const projectsList = projectsData || []
-            const projectIds = projectsList.map(p => p.id)
-
-            // 2. Fetch related data separately to bypass RLS Cartesian join explosion
-            let playlistItemsData: any[] = []
-            let schedulesData: any[] = []
-
-            if (projectIds.length > 0) {
-                const [plRes, schRes] = await Promise.all([
-                    supabase
-                        .from('playlist_items')
-                        .select('id, project_id, duration_override, content_item:content_items(duration_seconds)')
-                        .in('project_id', projectIds),
-                    supabase
-                        .from('schedules')
-                        .select('id, project_id')
-                        .in('project_id', projectIds)
-                ])
-                playlistItemsData = plRes.data || []
-                schedulesData = schRes.data || []
-            }
-
-            // 3. Map relationships in memory
-            const formatted = projectsList.map((p: any) => {
-                const pItems = playlistItemsData.filter(pi => pi.project_id === p.id)
-                const pSchedules = schedulesData.filter(s => s.project_id === p.id)
-
-                let totalDuration = 0
-                pItems.forEach((pi: any) => {
-                    totalDuration += (pi.duration_override || pi.content_item?.duration_seconds || 10)
-                })
-                
-                return { 
-                    ...p, 
-                    numItems: pItems.length, 
-                    totalDuration, 
-                    numSchedules: pSchedules.length 
-                }
-            })
-
-            setProjects(formatted)
-            if (screensData) setScreens(screensData)
-        } catch (error) {
-            toast({ title: "Failed to load projects", variant: "destructive", description: (error as Error).message })
-        } finally {
-            setIsFetching(false)
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-    useEffect(() => {
-        fetchProjects()
-    }, [fetchProjects])
 
     const handleCreateProject = async (e: React.FormEvent) => {
         e.preventDefault()

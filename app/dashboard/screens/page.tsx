@@ -5,6 +5,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { formatDistanceToNow } from "date-fns"
+import { useScreens } from "@/hooks/use-dashboard"
 
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -47,10 +48,16 @@ export default function ScreensPage() {
     const supabase = createClient()
     const { toast } = useToast()
 
-    const [screens, setScreens] = useState<Screen[]>([])
+    const { data: screensData, isLoading: isFetching, refresh: fetchData } = useScreens()
+    const screens = screensData || []
+
+    // Fetch locations for the create form
     const [locations, setLocations] = useState<Location[]>([])
-    const [isLoading, setIsLoading] = useState(false)  // page renders immediately
-    const [isFetching, setIsFetching] = useState(true) // grid-level loading indicator
+    useEffect(() => {
+        supabase.from('locations').select('id, name').then(({ data }) => {
+            if (data) setLocations(data as Location[])
+        })
+    }, [supabase])
 
     // Filters
     const [searchQuery, setSearchQuery] = useState("")
@@ -74,52 +81,6 @@ export default function ScreensPage() {
         orientation: "landscape",
         resolution: "1920x1080"
     })
-
-    const fetchData = useCallback(async () => {
-        setIsFetching(true)
-        try {
-            // 1. Fetch screens and locations separately to avoid nested RLS join recursion
-            const [{ data: screensData, error: screensError }, { data: locData, error: locError }] = await Promise.all([
-                supabase
-                    .from('screens')
-                    .select('id, name, status, orientation, resolution, last_heartbeat, display_key, location_id, current_state')
-                    .order('created_at', { ascending: false }),
-                supabase
-                    .from('locations')
-                    .select('id, name')
-                    .order('name')
-            ])
-
-            if (screensError) throw screensError
-            if (locError) throw locError
-
-            const locationsList = (locData as Location[]) || []
-            
-            // 2. Map locations to screens in memory
-            const enrichedScreens = (screensData || []).map((s: any) => ({
-                ...s,
-                location: locationsList.find(l => l.id === s.location_id) || null
-            }))
-
-            setScreens(enrichedScreens as Screen[])
-            setLocations(locationsList)
-
-        } catch (error) {
-            toast({
-                title: "Error loading screens",
-                description: (error as Error).message,
-                variant: "destructive"
-            })
-        } finally {
-            setIsFetching(false)
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-
-    useEffect(() => {
-        fetchData()
-    }, [fetchData])
 
     // Filters
     const filteredScreens = screens.filter(screen => {
