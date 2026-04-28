@@ -78,11 +78,11 @@ export default function ScreensPage() {
     const fetchData = useCallback(async () => {
         setIsFetching(true)
         try {
-            // Run both queries in parallel — no sequential waterfall
+            // 1. Fetch screens and locations separately to avoid nested RLS join recursion
             const [{ data: screensData, error: screensError }, { data: locData, error: locError }] = await Promise.all([
                 supabase
                     .from('screens')
-                    .select('id, name, status, orientation, resolution, last_heartbeat, display_key, location_id, location:locations(id, name), current_state')
+                    .select('id, name, status, orientation, resolution, last_heartbeat, display_key, location_id, current_state')
                     .order('created_at', { ascending: false }),
                 supabase
                     .from('locations')
@@ -93,8 +93,16 @@ export default function ScreensPage() {
             if (screensError) throw screensError
             if (locError) throw locError
 
-            setScreens((screensData as unknown as Screen[]) || [])
-            setLocations((locData as Location[]) || [])
+            const locationsList = (locData as Location[]) || []
+            
+            // 2. Map locations to screens in memory
+            const enrichedScreens = (screensData || []).map((s: any) => ({
+                ...s,
+                location: locationsList.find(l => l.id === s.location_id) || null
+            }))
+
+            setScreens(enrichedScreens as Screen[])
+            setLocations(locationsList)
 
         } catch (error) {
             toast({

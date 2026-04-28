@@ -75,16 +75,31 @@ export default function LocationsPage() {
     const fetchLocations = useCallback(async () => {
         setIsFetching(true)
         try {
-            const { data, error } = await supabase
-                .from('locations')
-                .select('id, name, address, city, country, timezone, created_at, screens(count)')
-                .order('name')
+            // 1. Fetch locations and screens separately to avoid nested RLS join recursion
+            const [{ data: locData, error: locError }, { data: screensData, error: screensError }] = await Promise.all([
+                supabase
+                    .from('locations')
+                    .select('id, name, address, city, country, timezone, created_at')
+                    .order('name'),
+                supabase
+                    .from('screens')
+                    .select('id, location_id')
+            ])
 
-            if (error) throw error
-            setLocations(data as unknown as Location[])
+            if (locError) throw locError
+            if (screensError) throw screensError
+
+            // 2. Compute screen counts in memory
+            const enrichedLocations = (locData || []).map((loc: any) => {
+                const screenCount = (screensData || []).filter(s => s.location_id === loc.id).length
+                return {
+                    ...loc,
+                    screens: [{ count: screenCount }]
+                }
+            })
+
+            setLocations(enrichedLocations as Location[])
         } catch (error) {
-            // AbortError is thrown by GoTrue's Web Locks API when auth lock is stolen by another
-            // request (common in React StrictMode dev or multiple tabs). It is non-fatal — ignore it.
             if ((error as Error).name === 'AbortError') return
             toast({
                 title: "Error loading locations",
