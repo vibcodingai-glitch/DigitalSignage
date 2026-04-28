@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { LogoutButton } from "@/components/logout-button"
 import { useUser } from "@/hooks/use-user"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { SWRConfig } from "swr"
 
 const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -244,16 +245,23 @@ export default function DashboardLayout({
     children: React.ReactNode
 }) {
     return (
-        <SidebarProvider>
-            <div className="flex min-h-screen w-full bg-slate-50 dark:bg-[#070710]">
-                <AppSidebar />
-                <main className="flex w-0 flex-1 flex-col overflow-hidden">
-                    <Topbar />
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-                        {children}
-                    </div>
-                </main>
-            </div>
-        </SidebarProvider>
+        <SWRConfig value={{
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            dedupingInterval: 30_000,
+            keepPreviousData: true,
+        }}>
+            <SidebarProvider>
+                <div className="flex min-h-screen w-full bg-slate-50 dark:bg-[#070710]">
+                    <AppSidebar />
+                    <main className="flex w-0 flex-1 flex-col overflow-hidden">
+                        <Topbar />
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+                            {children}
+                        </div>
+                    </main>
+                </div>
+            </SidebarProvider>
+        </SWRConfig>
     )
 }

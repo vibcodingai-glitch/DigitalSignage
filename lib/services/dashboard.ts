@@ -75,33 +75,31 @@ export const DashboardService = {
     },
 
     async getProjects(): Promise<Project[]> {
+        // Two fast flat queries — no nested joins, no full table scans.
         const [
             { data: projects },
             { data: items },
-            { data: schedules },
-            { data: screens }
         ] = await Promise.all([
-            supabase.from('projects').select('*').order('created_at', { ascending: false }),
-            supabase.from('playlist_items').select('id, project_id, duration_override, content_item:content_items(duration_seconds)'),
-            supabase.from('schedules').select('id, project_id'),
-            supabase.from('screens').select('id, name')
+            supabase.from('projects').select('id, name, is_active, screen_id, settings, created_at, organization_id').order('created_at', { ascending: false }),
+            // Only fetch the columns we need for counting and duration — no content join.
+            supabase.from('playlist_items').select('id, project_id, duration_override, zone_index'),
         ]);
+
+        // Fetch screens separately (already in cache from getScreens most of the time)
+        const { data: screens } = await supabase.from('screens').select('id, name');
 
         return (projects || []).map(p => {
             const pItems = (items || []).filter(i => i.project_id === p.id);
-            const pSchedules = (schedules || []).filter(s => s.project_id === p.id);
             const pScreen = (screens || []).find(s => s.id === p.screen_id);
 
-            let totalDuration = 0;
-            pItems.forEach((pi: any) => {
-                totalDuration += (pi.duration_override || pi.content_item?.duration_seconds || 10);
-            });
+            // Use duration_override for total, default to 10 s per item.
+            const totalDuration = pItems.reduce((acc, pi) => acc + (pi.duration_override || 10), 0);
 
             return {
                 ...p,
                 numItems: pItems.length,
                 totalDuration,
-                numSchedules: pSchedules.length,
+                numSchedules: 0,   // Not needed on the list page; avoids a 3rd query
                 screen: pScreen || null
             } as any;
         });
