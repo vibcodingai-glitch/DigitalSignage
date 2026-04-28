@@ -698,11 +698,27 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
     // WAKE LOCK
     // ==============================================================
     const requestWakeLock = useCallback(async () => {
-        if ('wakeLock' in navigator) {
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                wakeLockRef.current = await (navigator as any).wakeLock.request('screen')
-            } catch { /* wake lock not critical */ }
+        if (typeof window === 'undefined' || !('wakeLock' in navigator)) return;
+        
+        // If we already have an active lock, don't request another one
+        if (wakeLockRef.current) return;
+
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const lock = await (navigator as any).wakeLock.request('screen');
+            
+            // Handle the lock being released by the system
+            lock.addEventListener('release', () => {
+                wakeLockRef.current = null;
+            });
+
+            wakeLockRef.current = lock;
+        } catch (err: any) {
+            // Ignore AbortError as it's often caused by double-requests in dev mode
+            if (err.name !== 'AbortError') {
+                console.warn('[Display] WakeLock failed:', err.message);
+            }
+            wakeLockRef.current = null;
         }
     }, [])
 
