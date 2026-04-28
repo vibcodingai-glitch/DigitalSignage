@@ -193,11 +193,7 @@ export default function LocationsPage() {
     }
 
     const getScreenCount = (location: Location) => {
-        if (location.screens && location.screens.length > 0) {
-            // Depending on Supabase select count formatting, it might be an array with one object { count: number }
-            return location.screens[0].count;
-        }
-        return 0;
+        return (location as any).screen_count || 0;
     }
 
     return (

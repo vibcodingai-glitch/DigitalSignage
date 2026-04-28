@@ -36,15 +36,6 @@ interface RecentActivity {
     screen?: { name: string } | null;
 }
 
-interface DashboardData {
-    screens: { total: number; online: number; offline: number; unassigned: number };
-    locations: number;
-    projects: number;
-    contentItems: number;
-    recentScreens: RecentScreen[];
-    recentActivity: RecentActivity[];
-}
-
 const eventColorMap: Record<string, string> = {
     connect: "bg-emerald-500",
     disconnect: "bg-red-500",
@@ -53,29 +44,11 @@ const eventColorMap: Record<string, string> = {
     error: "bg-red-500",
 }
 
-const EMPTY_DATA: DashboardData = {
-    screens: { total: 0, online: 0, offline: 0, unassigned: 0 },
-    locations: 0, projects: 0, contentItems: 0,
-    recentScreens: [], recentActivity: []
-}
-
 export default function DashboardOverviewPage() {
     const { profile } = useUser()
     const { data: stats, isLoading: statsLoading, refresh: refreshStats } = useStats()
     const { data: screens, isLoading: screensLoading, refresh: refreshScreens } = useScreens()
     const { data: activity, isLoading: activityLoading, refresh: refreshActivity } = useRecentActivity()
-
-    const isLoading = (statsLoading || screensLoading) && (!stats || !screens)
-    
-    // Merge data safely for the existing UI components
-    const data = stats && screens ? {
-        ...stats,
-        recentScreens: screens.slice(0, 50),
-        recentActivity: activity || []
-    } : null
-
-    if (isLoading) return <DashboardSkeleton />
-    if (!data) return null
 
     const fetchDashboardData = () => {
         refreshStats()
@@ -83,88 +56,106 @@ export default function DashboardOverviewPage() {
         refreshActivity()
     }
 
-    const onlinePct = data.screens.total > 0
-        ? Math.round((data.screens.online / data.screens.total) * 100)
+    const onlinePct = stats?.screens.total && stats.screens.total > 0
+        ? Math.round((stats.screens.online / stats.screens.total) * 100)
         : 0
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
 
             {/* Welcome banner */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-700 to-violet-800 p-6 text-white shadow-xl shadow-blue-500/20">
-                <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-                <div className="relative flex items-center justify-between gap-6">
-                    <div>
-                        <p className="text-blue-200 text-sm font-medium mb-1">Welcome back 👋</p>
-                        <h2 className="text-2xl font-bold tracking-tight">
-                            {profile?.full_name?.split(' ')[0] || 'Admin'}
-                        </h2>
-                        <p className="text-blue-200 text-sm mt-1">
-                            Your network has <span className="font-semibold text-white">{data.screens.online} screen{data.screens.online !== 1 ? 's' : ''}</span> broadcasting live right now.
-                        </p>
-                    </div>
-                    <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
-                        <div className="flex items-center gap-2 text-sm">
-                            <span className="text-blue-200">Network health</span>
-                            <span className="text-white font-bold text-lg">{onlinePct}%</span>
+            {!stats && statsLoading ? (
+                <Skeleton className="h-28 rounded-2xl bg-slate-200 dark:bg-white/5" />
+            ) : (
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-700 to-violet-800 p-6 text-white shadow-xl shadow-blue-500/20">
+                    <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+                    <div className="relative flex items-center justify-between gap-6">
+                        <div>
+                            <p className="text-blue-200 text-sm font-medium mb-1">Welcome back 👋</p>
+                            <h2 className="text-2xl font-bold tracking-tight">
+                                {profile?.full_name?.split(' ')[0] || 'Admin'}
+                            </h2>
+                            <p className="text-blue-200 text-sm mt-1">
+                                Your network has <span className="font-semibold text-white">{stats?.screens.online || 0} screen{(stats?.screens.online || 0) !== 1 ? 's' : ''}</span> broadcasting live right now.
+                            </p>
                         </div>
-                        <div className="w-40 h-2 bg-white/20 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-white rounded-full transition-all duration-700"
-                                style={{ width: `${onlinePct}%` }}
-                                suppressHydrationWarning
-                            />
+                        <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-blue-200">Network health</span>
+                                <span className="text-white font-bold text-lg">{onlinePct}%</span>
+                            </div>
+                            <div className="w-40 h-2 bg-white/20 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-white rounded-full transition-all duration-700"
+                                    style={{ width: `${onlinePct}%` }}
+                                    suppressHydrationWarning
+                                />
+                            </div>
+                            <span className="text-blue-200 text-xs">{stats?.screens.online || 0} / {stats?.screens.total || 0} online</span>
                         </div>
-                        <span className="text-blue-200 text-xs">{data.screens.online} / {data.screens.total} online</span>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* KPI Cards */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <KpiCard
-                    title="Total Screens"
-                    value={data.screens.total}
-                    icon={<Monitor className="h-5 w-5" />}
-                    iconBg="from-emerald-500 to-teal-600"
-                    sub={
-                        <div className="flex items-center gap-3 text-xs">
-                            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" />
-                                {data.screens.online} online
-                            </span>
-                            <span className="flex items-center gap-1 text-red-500 font-medium">
-                                <span className="h-1.5 w-1.5 rounded-full bg-red-500 inline-block" />
-                                {data.screens.offline} offline
-                            </span>
-                        </div>
-                    }
-                    href="/dashboard/screens"
-                />
-                <KpiCard
-                    title="Locations"
-                    value={data.locations}
-                    icon={<MapPin className="h-5 w-5" />}
-                    iconBg="from-blue-500 to-cyan-600"
-                    sub={<span className="text-xs text-slate-500 dark:text-slate-400">Registered regions</span>}
-                    href="/dashboard/locations"
-                />
-                <KpiCard
-                    title="Active Projects"
-                    value={data.projects}
-                    icon={<Layers className="h-5 w-5" />}
-                    iconBg="from-violet-500 to-purple-600"
-                    sub={<span className="text-xs text-slate-500 dark:text-slate-400">Currently broadcasting</span>}
-                    href="/dashboard/projects"
-                />
-                <KpiCard
-                    title="Content Assets"
-                    value={data.contentItems}
-                    icon={<FolderOpen className="h-5 w-5" />}
-                    iconBg="from-orange-500 to-amber-600"
-                    sub={<span className="text-xs text-slate-500 dark:text-slate-400">Uploaded media</span>}
-                    href="/dashboard/content"
-                />
+                {!stats && statsLoading ? (
+                    [1, 2, 3, 4].map(i => (
+                        <Card key={i} className="border-slate-200 dark:border-white/5">
+                            <CardContent className="p-5 space-y-3">
+                                <Skeleton className="h-10 w-10 rounded-xl" />
+                                <Skeleton className="h-8 w-16" />
+                                <Skeleton className="h-4 w-24" />
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : (
+                    <>
+                        <KpiCard
+                            title="Total Screens"
+                            value={stats?.screens.total || 0}
+                            icon={<Monitor className="h-5 w-5" />}
+                            iconBg="from-emerald-500 to-teal-600"
+                            sub={
+                                <div className="flex items-center gap-3 text-xs">
+                                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" />
+                                        {stats?.screens.online || 0} online
+                                    </span>
+                                    <span className="flex items-center gap-1 text-red-500 font-medium">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 inline-block" />
+                                        {stats?.screens.offline || 0} offline
+                                    </span>
+                                </div>
+                            }
+                            href="/dashboard/screens"
+                        />
+                        <KpiCard
+                            title="Locations"
+                            value={stats?.locations || 0}
+                            icon={<MapPin className="h-5 w-5" />}
+                            iconBg="from-blue-500 to-cyan-600"
+                            sub={<span className="text-xs text-slate-500 dark:text-slate-400">Registered regions</span>}
+                            href="/dashboard/locations"
+                        />
+                        <KpiCard
+                            title="Active Projects"
+                            value={stats?.projects || 0}
+                            icon={<Layers className="h-5 w-5" />}
+                            iconBg="from-violet-500 to-purple-600"
+                            sub={<span className="text-xs text-slate-500 dark:text-slate-400">Currently broadcasting</span>}
+                            href="/dashboard/projects"
+                        />
+                        <KpiCard
+                            title="Content Assets"
+                            value={stats?.contentItems || 0}
+                            icon={<FolderOpen className="h-5 w-5" />}
+                            iconBg="from-orange-500 to-amber-600"
+                            sub={<span className="text-xs text-slate-500 dark:text-slate-400">Uploaded media</span>}
+                            href="/dashboard/content"
+                        />
+                    </>
+                )}
             </div>
 
             {/* Screen Status + Live Preview */}
@@ -175,7 +166,7 @@ export default function DashboardOverviewPage() {
                         <span className="text-3xl font-bold text-slate-900 dark:text-white">{onlinePct}%</span>
                         <div>
                             <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Screen Uptime</p>
-                            <p className="text-[11px] text-slate-400">{data.screens.online} of {data.screens.total} screens online</p>
+                            <p className="text-[11px] text-slate-400">{stats?.screens.online || 0} of {stats?.screens.total || 0} screens online</p>
                         </div>
                     </div>
                     <div className="flex-1 h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden mx-2 hidden sm:block">
@@ -183,13 +174,13 @@ export default function DashboardOverviewPage() {
                     </div>
                     <div className="flex items-center gap-4 text-xs shrink-0">
                         <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> {data.screens.online} Online
+                            <CheckCircle2 className="h-3.5 w-3.5" /> {stats?.screens.online || 0} Online
                         </span>
                         <span className="flex items-center gap-1.5 text-red-500 font-semibold">
-                            <XCircle className="h-3.5 w-3.5" /> {data.screens.offline} Offline
+                            <XCircle className="h-3.5 w-3.5" /> {stats?.screens.offline || 0} Offline
                         </span>
                         <span className="flex items-center gap-1.5 text-amber-500 font-semibold">
-                            <AlertCircle className="h-3.5 w-3.5" /> {data.screens.unassigned} Unassigned
+                            <AlertCircle className="h-3.5 w-3.5" /> {stats?.screens.unassigned || 0} Unassigned
                         </span>
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-slate-500" onClick={fetchDashboardData}>
                             <TrendingUp className="h-3 w-3" /> Refresh
@@ -219,10 +210,20 @@ export default function DashboardOverviewPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-                                    {data.recentScreens.length === 0 ? (
+                                    {!screens && screensLoading ? (
+                                        Array(5).fill(0).map((_, i) => (
+                                            <tr key={i}>
+                                                <td className="pl-4 pr-2 py-2.5"><Skeleton className="h-4 w-16" /></td>
+                                                <td className="px-2 py-2.5"><Skeleton className="h-4 w-32" /></td>
+                                                <td className="px-2 py-2.5 hidden sm:table-cell"><Skeleton className="h-4 w-24" /></td>
+                                                <td className="px-2 py-2.5 hidden md:table-cell"><Skeleton className="h-4 w-24" /></td>
+                                                <td className="px-2 pr-4 py-2.5 text-right hidden lg:table-cell"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                                            </tr>
+                                        ))
+                                    ) : (screens || []).length === 0 ? (
                                         <tr><td colSpan={5} className="text-center py-10 text-slate-400 text-xs">No screens configured</td></tr>
                                     ) : (
-                                        data.recentScreens.map(screen => (
+                                        (screens || []).slice(0, 10).map(screen => (
                                             <tr key={screen.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                                                 <td className="pl-4 pr-2 py-2.5">
                                                     {screen.status === 'online' ? (
@@ -276,13 +277,23 @@ export default function DashboardOverviewPage() {
                                 </h2>
                             </div>
                             <div className="divide-y divide-slate-50 dark:divide-white/5 max-h-80 overflow-y-auto">
-                                {data.recentScreens.length === 0 ? (
+                                {!screens && screensLoading ? (
+                                    Array(3).fill(0).map((_, i) => (
+                                        <div key={i} className="flex items-center gap-3 px-4 py-3">
+                                            <Skeleton className="h-10 w-16 rounded-md shrink-0" />
+                                            <div className="flex-1 space-y-2">
+                                                <Skeleton className="h-3 w-3/4" />
+                                                <Skeleton className="h-2 w-1/2" />
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (screens || []).length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-10 text-slate-400">
                                         <Monitor className="h-8 w-8 mb-2 opacity-30" />
                                         <p className="text-xs">No screens yet</p>
                                     </div>
                                 ) : (
-                                    data.recentScreens.map(screen => (
+                                    (screens || []).slice(0, 5).map(screen => (
                                         <Link key={screen.id} href={`/dashboard/screens/${screen.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
                                             <div className="relative shrink-0 w-16 h-10 rounded-md bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center overflow-hidden">
                                                 <Monitor className="h-4 w-4 text-white/20" />
@@ -307,7 +318,7 @@ export default function DashboardOverviewPage() {
                             </div>
                         </div>
 
-                        {/* Activity Feed — moved here in condensed form */}
+                        {/* Activity Feed */}
                         <div className="rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-white/[0.02] overflow-hidden shadow-sm">
                             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-white/5">
                                 <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
@@ -322,13 +333,23 @@ export default function DashboardOverviewPage() {
                                 </span>
                             </div>
                             <div className="divide-y divide-slate-50 dark:divide-white/5 max-h-48 overflow-y-auto">
-                                {data.recentActivity.length === 0 ? (
+                                {!activity && activityLoading ? (
+                                    Array(4).fill(0).map((_, i) => (
+                                        <div key={i} className="flex gap-3 px-4 py-2.5">
+                                            <Skeleton className="h-1.5 w-1.5 rounded-full mt-2 shrink-0" />
+                                            <div className="flex-1 space-y-1.5">
+                                                <Skeleton className="h-3 w-full" />
+                                                <Skeleton className="h-2 w-1/3" />
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (activity || []).length === 0 ? (
                                     <div className="flex items-center justify-center py-8 text-slate-400">
                                         <Radio className="h-5 w-5 mr-2 opacity-30" />
                                         <p className="text-xs">No recent activity</p>
                                     </div>
                                 ) : (
-                                    data.recentActivity.map(log => (
+                                    (activity || []).map(log => (
                                         <div key={log.id} className="flex items-start gap-2.5 px-4 py-2.5">
                                             <div className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${eventColorMap[log.event] || 'bg-slate-400'}`} />
                                             <div className="min-w-0 flex-1">
@@ -387,53 +408,3 @@ function formatEventName(event: string) {
     return event.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 }
 
-function DashboardSkeleton() {
-    return (
-        <div className="space-y-8 animate-pulse">
-            <div className="h-28 rounded-2xl bg-gradient-to-br from-blue-600/30 to-violet-700/30" />
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {[1, 2, 3, 4].map(i => (
-                    <Card key={i} className="border-slate-200 dark:border-white/5">
-                        <CardContent className="p-5 space-y-3">
-                            <Skeleton className="h-10 w-10 rounded-xl" />
-                            <Skeleton className="h-8 w-16" />
-                            <Skeleton className="h-4 w-24" />
-                            <Skeleton className="h-3 w-32" />
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-            <div className="grid gap-6 xl:grid-cols-7">
-                <div className="xl:col-span-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {[1, 2, 3].map(i => (
-                            <Card key={i} className="border-slate-200 dark:border-white/5">
-                                <Skeleton className="aspect-video" />
-                                <CardContent className="p-3 space-y-2">
-                                    <Skeleton className="h-4 w-3/4" />
-                                    <Skeleton className="h-3 w-1/2" />
-                                    <Skeleton className="h-3 w-2/3" />
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                </div>
-                <div className="xl:col-span-2">
-                    <Card className="border-slate-200 dark:border-white/5">
-                        <CardContent className="p-4 space-y-4">
-                            {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="flex gap-3">
-                                    <Skeleton className="h-2 w-2 rounded-full mt-1.5 shrink-0" />
-                                    <div className="space-y-1.5 flex-1">
-                                        <Skeleton className="h-3.5 w-full" />
-                                        <Skeleton className="h-3 w-1/2" />
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-        </div>
-    )
-}

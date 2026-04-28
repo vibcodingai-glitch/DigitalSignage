@@ -19,8 +19,14 @@ function useDashboardData<T>(key: string, fetchFn: () => Promise<T>) {
     };
 }
 
-export const useScreens = () => useDashboardData("dashboard-screens", async () => (await DashboardService.getScreens()).screens);
 export const useScreensMetadata = () => useDashboardData("dashboard-metadata", DashboardService.getScreens);
+export const useScreens = () => {
+    const { data, ...rest } = useScreensMetadata();
+    return {
+        ...rest,
+        data: data?.screens || null
+    };
+};
 export const useLocations = () => useDashboardData("dashboard-locations", DashboardService.getLocations);
 export const useProjects = () => useDashboardData("dashboard-projects", DashboardService.getProjects);
 export const useStats = () => useDashboardData("dashboard-stats", () => DashboardService.getStats());

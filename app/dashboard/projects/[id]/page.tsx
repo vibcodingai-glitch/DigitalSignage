@@ -43,6 +43,7 @@ import {
 } from "lucide-react"
 import { SchedulePanel } from "@/components/schedule-panel"
 import LayoutSelector, { LayoutType } from '@/components/projects/LayoutSelector'
+import { AssignToScreenDialog } from "@/components/AssignToScreenDialog"
 
 // Types
 type PlaylistItem = {
@@ -122,6 +123,7 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
     const [pushingToScreen, setPushingToScreen] = useState(false)
     const [selectedPlaylistIndex, setSelectedPlaylistIndex] = useState<number | null>(null)
     const [activeZoneIndex, setActiveZoneIndex] = useState(0)
+    const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
 
     useEffect(() => {
         if (detailData) {
@@ -509,7 +511,17 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
                                 <MonitorPlay className="h-3 w-3 mr-1" /> Bound: {screen.name}
                             </Link>
                         ) : (
-                            <span className="text-xs text-slate-500 mt-0.5">Float Project (No bound Screen)</span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs text-slate-500">Float Project (No bound Screen)</span>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-5 px-1.5 text-[10px] text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border border-indigo-100"
+                                    onClick={() => setIsAssignDialogOpen(true)}
+                                >
+                                    Assign to Screen
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -712,7 +724,16 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
                                                 />
                                                 <Label htmlFor="active-toggle" className={`font-semibold cursor-pointer ${!isScreenBound ? 'opacity-50' : ''}`}>Execute Feed</Label>
                                             </div>
-                                            {!isScreenBound && <span className="text-[10px] text-amber-600 mt-2 block">Cannot activate unbound sequences. Bind to a screen first.</span>}
+                                            {!isScreenBound && (
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="w-full mt-4 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center gap-2"
+                                                    onClick={() => setIsAssignDialogOpen(true)}
+                                                >
+                                                    <MonitorPlay className="h-4 w-4" /> Bind to a Screen
+                                                </Button>
+                                            )}
                                         </CardContent>
                                     </Card>
 
@@ -798,6 +819,14 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
                         )
                     ) : null}
                 </DragOverlay>
+
+                <AssignToScreenDialog
+                    open={isAssignDialogOpen}
+                    onOpenChange={setIsAssignDialogOpen}
+                    projectId={params.id}
+                    organizationId={profile?.organization_id || ""}
+                    onSuccess={() => fetchData()}
+                />
             </DndContext>
 
             {/* Preview Modal Simulation */}
