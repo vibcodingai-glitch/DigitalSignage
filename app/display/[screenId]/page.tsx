@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { MonitorPlay, WifiOff, AlertTriangle } from "lucide-react"
+import { MonitorPlay, WifiOff, AlertTriangle, ExternalLink } from "lucide-react"
 import { resolveActiveProject } from "@/lib/screen-projects"
+import { usePowerBIRelay } from "@/hooks/use-powerbi-relay"
 
 // ==============================================================
 // TYPES
@@ -592,7 +593,9 @@ function ZoneRenderer({
     project: Project | null, 
     isMuted: boolean, 
     playerKey: number,
-    onItemChange?: (index: number, item: PlaylistItem) => void
+    onItemChange?: (index: number, item: PlaylistItem) => void,
+    onPowerBIShow?: (url: string) => void,
+    onPowerBIHide?: () => void
 }) {
     const [currentIndex, setCurrentIndex] = useState(0)
     const [projectKey, setProjectKey] = useState(project?.id || 'none')
@@ -642,6 +645,16 @@ function ZoneRenderer({
         if (timerRef.current) clearTimeout(timerRef.current)
         if (stuckTimerRef.current) clearTimeout(stuckTimerRef.current)
 
+        // Handle PowerBI Relay
+        const isPowerBI = item.content_item.type === 'powerbi' || (item.content_item.type === 'url' && item.content_item.source_url?.includes('powerbi.com'))
+        if (isPowerBI && onPowerBIShow && item.content_item.source_url) {
+            console.log('[Display] Triggering PowerBI Relay for:', item.content_item.source_url)
+            onPowerBIShow(item.content_item.source_url)
+        } else if (!isPowerBI && onPowerBIHide) {
+            // If we moved from PowerBI to a normal item, hide the relay
+            onPowerBIHide()
+        }
+
         const isVideo = item.content_item.type === 'video'
         if (!isVideo) {
             timerRef.current = setTimeout(advanceToNext, durationMs)
@@ -656,7 +669,7 @@ function ZoneRenderer({
             if (timerRef.current) clearTimeout(timerRef.current)
             if (stuckTimerRef.current) clearTimeout(stuckTimerRef.current)
         }
-    }, [currentIndex, items, advanceToNext])
+    }, [currentIndex, items, advanceToNext, onPowerBIShow, onPowerBIHide])
 
     useEffect(() => {
         if (items.length < 2) return
@@ -689,6 +702,19 @@ function ZoneRenderer({
                     onError={handleContentError}
                     isMuted={isMuted}
                 />
+            )}
+            {/* Overlay placeholder when PowerBI is active on the relay */}
+            {(currentItem?.content_item.type === 'powerbi' || (currentItem?.content_item.type === 'url' && currentItem?.content_item.source_url?.includes('powerbi.com'))) && (
+                <div className="absolute inset-0 bg-gray-950 flex flex-col items-center justify-center z-10">
+                    <div className="relative mb-6">
+                        <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-ping" />
+                        <div className="h-16 w-16 rounded-2xl bg-yellow-400/5 border border-yellow-400/20 flex items-center justify-center">
+                            <MonitorPlay className="h-8 w-8 text-yellow-400/40" />
+                        </div>
+                    </div>
+                    <p className="text-white/60 font-medium text-sm">PowerBI Active on Relay</p>
+                    <p className="text-white/20 text-[10px] font-mono mt-1 uppercase tracking-widest">{currentItem.content_item.name}</p>
+                </div>
             )}
         </div>
     )
@@ -746,6 +772,10 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
     const [pushOverlay, setPushOverlay] = useState<PushOverlay | null>(null)
     const [isMuted, setIsMuted] = useState(true)
     const [livePlayState, setLivePlayState] = useState<{ index: number, item: PlaylistItem | null }>({ index: 0, item: null })
+    const [showRelayTrigger, setShowRelayTrigger] = useState(false)
+
+    // --- PowerBI Relay ---
+    const relay = usePowerBIRelay()
 
     // --- Uptime tracking ---
     const bootTimeRef = useRef<number>(Date.now())
@@ -1203,40 +1233,40 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
             case 'split_horizontal':
                 return (
                     <div className="grid grid-rows-2 w-full h-full gap-1">
-                        <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
-                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
+                        <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
+                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
                     </div>
                 )
             case 'split_vertical':
                 return (
                     <div className="grid grid-cols-2 w-full h-full gap-1">
-                        <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
-                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
+                        <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
+                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
                     </div>
                 )
             case 'l_shape':
                 return (
                     <div className="grid grid-cols-[70%_30%] grid-rows-2 w-full h-full gap-1">
                         <div className="row-span-2">
-                            <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
+                            <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
                         </div>
-                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
-                        <ZoneRenderer items={itemsByZone[2] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
+                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
+                        <ZoneRenderer items={itemsByZone[2] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
                     </div>
                 )
             case 'grid_2x2':
                 return (
                     <div className="grid grid-cols-2 grid-rows-2 w-full h-full gap-1">
-                        <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
-                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
-                        <ZoneRenderer items={itemsByZone[2] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
-                        <ZoneRenderer items={itemsByZone[3] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
+                        <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
+                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
+                        <ZoneRenderer items={itemsByZone[2] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
+                        <ZoneRenderer items={itemsByZone[3] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
                     </div>
                 )
             case 'main_ticker':
                 return (
                     <div className="grid grid-rows-[90%_10%] w-full h-full gap-1">
-                        <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
+                        <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
                         <TickerZoneRenderer items={itemsByZone[1] || []} project={project} playerKey={playerKey} />
                     </div>
                 )
@@ -1249,7 +1279,15 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
                             project={project} 
                             isMuted={isMuted} 
                             playerKey={playerKey} 
-                            onItemChange={(index, item) => setLivePlayState({ index, item })}
+                            onItemChange={(index, item) => {
+                                setLivePlayState({ index, item })
+                                // If it's a PowerBI item, make sure we prompt to enable relay if not already open
+                                if (item.content_item.type === 'powerbi' || (item.content_item.type === 'url' && item.content_item.source_url?.includes('powerbi.com'))) {
+                                    setShowRelayTrigger(true)
+                                }
+                            }}
+                            onPowerBIShow={relay.showURL}
+                            onPowerBIHide={relay.hide}
                         />
                     </div>
                 )
@@ -1275,6 +1313,30 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
             >
                 <MonitorPlay className="h-6 w-6" />
             </button>
+
+            {/* PowerBI Relay Trigger — Browser security requires a user gesture to open a window */}
+            {showRelayTrigger && (
+                <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-500">
+                    <div className="bg-[#111827] border border-yellow-400/20 p-8 rounded-3xl max-w-md w-full text-center shadow-2xl">
+                        <div className="h-20 w-20 rounded-2xl bg-yellow-400/10 border border-yellow-400/30 flex items-center justify-center mx-auto mb-6">
+                            <ExternalLink className="h-10 w-10 text-yellow-400" />
+                        </div>
+                        <h2 className="text-white text-2xl font-bold mb-2">PowerBI Ready</h2>
+                        <p className="text-slate-400 text-sm mb-8">
+                            This project contains PowerBI content. Click below to enable the display relay. This only needs to be done once.
+                        </p>
+                        <button
+                            onClick={() => {
+                                relay.openRelay()
+                                setShowRelayTrigger(false)
+                            }}
+                            className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-2xl transition-all shadow-lg shadow-yellow-400/20 flex items-center justify-center gap-2"
+                        >
+                            Enable PowerBI Display
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* MAIN CONTENT LAYER */}
             {renderLayout()}
