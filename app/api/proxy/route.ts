@@ -24,6 +24,38 @@ function toTableauEmbedUrl(url: string): string {
   return url
 }
 
+/**
+ * Converts a PowerBI URL to its embeddable format if possible.
+ */
+function toPowerBIEmbedUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    if (!u.hostname.includes('powerbi.com')) return url
+
+    // Publish to Web format: /view?r=...
+    if (u.pathname === '/view' && u.searchParams.has('r')) {
+      return u.toString()
+    }
+
+    // Standard report format: /groups/{groupId}/reports/{reportId}/...
+    const reportMatch = u.pathname.match(/\/groups\/([^/]+)\/reports\/([^/]+)/)
+    if (reportMatch) {
+      const groupId = reportMatch[1]
+      const reportId = reportMatch[2]
+      return `https://app.powerbi.com/reportEmbed?reportId=${reportId}&groupId=${groupId}&autoAuth=true`
+    }
+
+    // App format: /groups/{groupId}/apps/{appId}/reports/{reportId}/...
+    const appReportMatch = u.pathname.match(/\/groups\/([^/]+)\/apps\/([^/]+)\/reports\/([^/]+)/)
+    if (appReportMatch) {
+      const groupId = appReportMatch[1]
+      const reportId = appReportMatch[3]
+      return `https://app.powerbi.com/reportEmbed?reportId=${reportId}&groupId=${groupId}&autoAuth=true`
+    }
+  } catch { /* fall through */ }
+  return url
+}
+
 export async function GET(request: NextRequest) {
   const targetUrl = request.nextUrl.searchParams.get('url')
 
@@ -39,8 +71,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
   }
 
-  // Convert Tableau URLs to embeddable format
-  const fetchUrl = toTableauEmbedUrl(parsedUrl.toString())
+  // Convert URLs to embeddable format
+  let fetchUrl = toTableauEmbedUrl(parsedUrl.toString())
+  fetchUrl = toPowerBIEmbedUrl(fetchUrl)
 
   try {
     const response = await fetch(fetchUrl, {

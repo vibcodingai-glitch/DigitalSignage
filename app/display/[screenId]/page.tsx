@@ -108,34 +108,55 @@ function getProxiedUrl(url: string, appUrl: string): string {
     // Only proxy external URLs, not same-origin
     try {
         const urlObj = new URL(url)
-        const appUrlObj = new URL(appUrl)
+        
+        // 1. PowerBI — handles both "Publish to Web" and standard reports
+        // MUST come before proxying because PowerBI requires direct connection
+        if (urlObj.hostname.includes('powerbi.com')) {
+            // "Publish to Web" (e.g. app.powerbi.com/view?r=...)
+            if (urlObj.pathname === '/view' && urlObj.searchParams.has('r')) {
+                return url
+            }
 
-        // If it's the same origin, don't proxy
-        if (urlObj.origin === appUrlObj.origin) {
-            return url
+            // Standard reports (convert to embed format)
+            const reportMatch = urlObj.pathname.match(/\/groups\/([^/]+)\/reports\/([^/]+)/)
+            const appMatch = urlObj.pathname.match(/\/groups\/([^/]+)\/apps\/([^/]+)\/reports\/([^/]+)/)
+            
+            if (reportMatch) {
+                return `https://app.powerbi.com/reportEmbed?reportId=${reportMatch[2]}&groupId=${reportMatch[1]}&autoAuth=true`
+            } else if (appMatch) {
+                return `https://app.powerbi.com/reportEmbed?reportId=${appMatch[3]}&groupId=${appMatch[1]}&autoAuth=true`
+            }
+            
+            // If it's already an embed URL, return as-is (do not proxy)
+            if (urlObj.pathname.startsWith('/reportEmbed')) {
+                return url
+            }
         }
 
-        // Tableau Public — use their native embed URL directly (no proxy needed,
-        // and proxy breaks it because Tableau JS validates the serving domain)
+        // 2. Tableau Public — use their native embed URL directly
         if (urlObj.hostname.includes('tableau.com')) {
             const match = urlObj.pathname.match(/\/viz\/([^/]+)\/([^/]+)/)
             if (match) {
                 return `https://public.tableau.com/views/${match[1]}/${match[2]}?:embed=y&:showVizHome=no&:toolbar=no`
             }
-            // Already a /views/ URL — add embed params
             if (urlObj.pathname.startsWith('/views/')) {
                 urlObj.searchParams.set(':embed', 'y')
                 urlObj.searchParams.set(':showVizHome', 'no')
                 urlObj.searchParams.set(':toolbar', 'no')
                 return urlObj.toString()
             }
-            return url // fallback: use as-is
+            return url
         }
 
-        // External URL — proxy it to strip X-Frame-Options
+        // 3. Same-origin check
+        const appUrlObj = new URL(appUrl)
+        if (urlObj.origin === appUrlObj.origin) {
+            return url
+        }
+
+        // 4. External URL — proxy it to strip X-Frame-Options
         return `${appUrl}/api/proxy?url=${encodeURIComponent(url)}`
     } catch {
-        // Invalid URL, return as-is
         return url
     }
 }
@@ -381,7 +402,12 @@ function ContentRenderer({
         }
 
         // All other embeddable URLs — proxy to strip X-Frame-Options
-        const iframeSrc = getProxiedUrl(src, process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : ''))
+        const currentOrigin = typeof window !== 'undefined' ? window.location.origin : ''
+        const appUrl = (process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.includes('localhost')) 
+            ? currentOrigin 
+            : (process.env.NEXT_PUBLIC_APP_URL || currentOrigin)
+
+        const iframeSrc = getProxiedUrl(src, appUrl)
         return (
             <div key={item.id} className={`${baseClass} bg-gray-950`}>
                 {iframeError ? (
