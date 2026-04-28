@@ -10,7 +10,7 @@ import { usePowerBIRelay } from "@/hooks/use-powerbi-relay"
 // TYPES
 // ==============================================================
 
-type ContentType = 'image' | 'video' | 'audio' | 'url' | 'webpage' | 'powerbi' | 'dashboard' | 'html_snippet'
+type ContentType = 'image' | 'video' | 'audio' | 'url' | 'webpage' | 'powerbi' | 'powerbi_frame' | 'dashboard' | 'html_snippet'
 
 interface ContentItem {
     id: string
@@ -387,6 +387,30 @@ function ContentRenderer({
         )
     }
 
+    // powerbi_frame: direct iframe embed using the browser's existing session.
+    // Requires Chrome launched with --disable-web-security to bypass X-Frame-Options.
+    if (type === 'powerbi_frame') {
+        return (
+            <div key={item.id} className={`${baseClass} bg-black`}>
+                {isLoading && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
+                        <div className="h-8 w-8 rounded-full border-2 border-yellow-500 border-t-transparent animate-spin" />
+                        <p className="text-yellow-400/60 text-xs font-mono">Loading PowerBI…</p>
+                    </div>
+                )}
+                <iframe
+                    key={src}
+                    src={src}
+                    className="w-full h-full border-none"
+                    onLoad={() => setIsLoading(false)}
+                    onError={() => setIsLoading(false)}
+                    title={item.content_item.name}
+                    allow="fullscreen"
+                />
+            </div>
+        )
+    }
+
     if (type === 'url' || type === 'webpage' || type === 'powerbi' || type === 'dashboard') {
         // Tableau URLs — use the Embedding API v3 for proper full-screen responsive sizing
         const isTableau = src.includes('tableau.com')
@@ -527,8 +551,12 @@ function ZoneRenderer({
         if (timerRef.current) clearTimeout(timerRef.current)
         if (stuckTimerRef.current) clearTimeout(stuckTimerRef.current)
 
-        // Handle PowerBI Relay
-        const isPowerBI = item.content_item.type === 'powerbi' || (item.content_item.type === 'url' && item.content_item.source_url?.includes('powerbi.com'))
+        // Handle PowerBI Relay — only for 'powerbi' type, NOT for 'powerbi_frame'
+        const isPowerBI = item.content_item.type === 'powerbi' || (
+            item.content_item.type === 'url' &&
+            item.content_item.source_url?.includes('powerbi.com') &&
+            item.content_item.type !== 'powerbi_frame'
+        )
         if (isPowerBI && onPowerBIShow && item.content_item.source_url) {
             console.log('[Display] Triggering PowerBI Relay for:', item.content_item.source_url)
             onPowerBIShow(item.content_item.source_url)

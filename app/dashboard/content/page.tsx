@@ -29,7 +29,7 @@ export interface ContentItem {
     id: string;
     organization_id: string;
     name: string;
-    type: 'image' | 'video' | 'audio' | 'powerbi' | 'url' | 'webpage' | 'html_snippet' | 'dashboard';
+    type: 'image' | 'video' | 'audio' | 'powerbi' | 'powerbi_frame' | 'url' | 'webpage' | 'html_snippet' | 'dashboard';
     source_url: string | null;
     file_path: string | null;
     file_size: number | null;
@@ -46,6 +46,7 @@ const typeIcons = {
     url: <Globe className="h-5 w-5" />,
     webpage: <Globe className="h-5 w-5" />,
     powerbi: <BarChart2 className="h-5 w-5" />,
+    powerbi_frame: <BarChart2 className="h-5 w-5" />,
     dashboard: <BarChart2 className="h-5 w-5" />,
     html_snippet: <Code className="h-5 w-5" />
 }
@@ -57,6 +58,7 @@ const typeColors = {
     url: "text-indigo-500 bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-900/50",
     webpage: "text-indigo-500 bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-900/50",
     powerbi: "text-amber-500 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-900/50",
+    powerbi_frame: "text-yellow-600 bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-900/50",
     dashboard: "text-amber-500 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-900/50",
     html_snippet: "text-slate-500 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700"
 }
@@ -793,8 +795,9 @@ export default function ContentLibraryPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="url">Webpage URL</SelectItem>
-                                    <SelectItem value="powerbi">PowerBI Dashboard</SelectItem>
-                                    <SelectItem value="dashboard">Grafana / Tableu Dashboard</SelectItem>
+                                    <SelectItem value="powerbi">PowerBI (Relay Window)</SelectItem>
+                                    <SelectItem value="powerbi_frame">PowerBI (Direct Frame — session auth)</SelectItem>
+                                    <SelectItem value="dashboard">Grafana / Tableau Dashboard</SelectItem>
                                     <SelectItem value="html_snippet">Direct Raw HTML Render</SelectItem>
                                 </SelectContent>
                             </Select>
