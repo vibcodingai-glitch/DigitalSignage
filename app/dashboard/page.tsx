@@ -61,10 +61,12 @@ const EMPTY_DATA: DashboardData = {
 
 export default function DashboardOverviewPage() {
     const { profile } = useUser()
-    const { data, isLoading } = useOverview()
+    const { data, isLoading, refresh } = useOverview()
 
     if (isLoading && !data) return <DashboardSkeleton />
     if (!data) return null
+
+    const fetchDashboardData = () => refresh()
 
 
 

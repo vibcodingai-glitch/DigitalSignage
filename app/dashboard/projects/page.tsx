@@ -291,7 +291,7 @@ export default function ProjectsListPage() {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-sm text-slate-500">
-                                            {format(new Date(project.created_at), 'MMM d, h:mm a')}
+                                            {project.created_at ? format(new Date(project.created_at), 'MMM d, h:mm a') : '—'}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">

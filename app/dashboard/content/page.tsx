@@ -651,7 +651,7 @@ export default function ContentLibraryPage() {
                                         <h3 className="font-semibold text-sm truncate text-slate-900 dark:text-slate-100" title={item.name}>{item.name}</h3>
                                         <div className="flex justify-between items-center mt-1">
                                             <span className="text-[10px] text-slate-500">{formatBytes(item.file_size || 0)}</span>
-                                            <span className="text-[10px] text-slate-400">{format(new Date(item.created_at), 'MMM d, yyyy')}</span>
+                                            <span className="text-[10px] text-slate-400">{item.created_at ? format(new Date(item.created_at), 'MMM d, yyyy') : '—'}</span>
                                         </div>
                                     </CardContent>
                                     <div className={`absolute inset-0 bg-indigo-500/5 pointer-events-none transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
