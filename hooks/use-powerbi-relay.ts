@@ -115,9 +115,20 @@ export function usePowerBIRelay() {
         send({ type: "NAVIGATE", url })
     }, [openRelay, send])
 
-    // ── Hide relay (show standby / transparent) ───────────────
+    // ── Hide relay (navigate back to standby) ─────────────────
+    // IMPORTANT: BroadcastChannel won't work here because once the relay
+    // window navigated to PowerBI, its listener is destroyed. We must use
+    // the window ref directly — this works because both pages are same-origin.
     const hide = useCallback(() => {
-        send({ type: "STANDBY" })
+        if (relayWindowRef.current && !relayWindowRef.current.closed) {
+            try {
+                const standbyUrl = `${window.location.origin}/display/powerbi-relay`
+                relayWindowRef.current.location.href = standbyUrl
+            } catch {
+                // Fallback: relay hasn't navigated yet, BroadcastChannel still works
+                send({ type: 'STANDBY' })
+            }
+        }
     }, [send])
 
     // ── Close relay entirely ───────────────────────────────────

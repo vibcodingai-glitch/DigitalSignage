@@ -467,7 +467,9 @@ function ZoneRenderer({
     project, 
     isMuted, 
     playerKey,
-    onItemChange
+    onItemChange,
+    onPowerBIShow,
+    onPowerBIHide,
 }: { 
     items: PlaylistItem[], 
     project: Project | null, 
@@ -530,14 +532,19 @@ function ZoneRenderer({
         if (isPowerBI && onPowerBIShow && item.content_item.source_url) {
             console.log('[Display] Triggering PowerBI Relay for:', item.content_item.source_url)
             onPowerBIShow(item.content_item.source_url)
-        } else if (!isPowerBI && onPowerBIHide) {
-            // If we moved from PowerBI to a normal item, hide the relay
-            onPowerBIHide()
         }
 
         const isVideo = item.content_item.type === 'video'
         if (!isVideo) {
-            timerRef.current = setTimeout(advanceToNext, durationMs)
+            if (isPowerBI && onPowerBIHide) {
+                // Fix: call hide() 300ms BEFORE advancing so relay fade-out is visible
+                timerRef.current = setTimeout(() => {
+                    onPowerBIHide()
+                    setTimeout(advanceToNext, 300)
+                }, Math.max(durationMs - 300, 0))
+            } else {
+                timerRef.current = setTimeout(advanceToNext, durationMs)
+            }
         }
 
         stuckTimerRef.current = setTimeout(() => {
@@ -1121,15 +1128,16 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
             case 'split_horizontal':
                 return (
                     <div className="grid grid-rows-2 w-full h-full gap-1">
+                        {/* Zone 0 only gets relay — side zones must not cover the full screen */}
                         <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
-                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
+                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
                     </div>
                 )
             case 'split_vertical':
                 return (
                     <div className="grid grid-cols-2 w-full h-full gap-1">
                         <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
-                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
+                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
                     </div>
                 )
             case 'l_shape':
@@ -1138,17 +1146,17 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
                         <div className="row-span-2">
                             <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
                         </div>
-                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
-                        <ZoneRenderer items={itemsByZone[2] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
+                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
+                        <ZoneRenderer items={itemsByZone[2] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
                     </div>
                 )
             case 'grid_2x2':
                 return (
                     <div className="grid grid-cols-2 grid-rows-2 w-full h-full gap-1">
                         <ZoneRenderer items={itemsByZone[0] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
-                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
-                        <ZoneRenderer items={itemsByZone[2] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
-                        <ZoneRenderer items={itemsByZone[3] || []} project={project} isMuted={isMuted} playerKey={playerKey} onPowerBIShow={relay.showURL} onPowerBIHide={relay.hide} />
+                        <ZoneRenderer items={itemsByZone[1] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
+                        <ZoneRenderer items={itemsByZone[2] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
+                        <ZoneRenderer items={itemsByZone[3] || []} project={project} isMuted={isMuted} playerKey={playerKey} />
                     </div>
                 )
             case 'main_ticker':
