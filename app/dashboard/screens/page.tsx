@@ -398,7 +398,7 @@ export default function ScreensPage() {
                                 </CardContent>
 
                                 <CardFooter className="px-4 py-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-slate-500">
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5" suppressHydrationWarning>
                                         <Signal className={`h-3 w-3 ${isOnline ? 'text-emerald-500' : 'text-slate-400'}`} />
                                         {screen.last_heartbeat
                                             ? formatDistanceToNow(new Date(screen.last_heartbeat), { addSuffix: true })
