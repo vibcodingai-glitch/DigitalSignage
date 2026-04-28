@@ -5,7 +5,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { formatDistanceToNow } from "date-fns"
-import { useScreens } from "@/hooks/use-dashboard"
+import { useScreensMetadata } from "@/hooks/use-dashboard"
 
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -48,7 +48,7 @@ export default function ScreensPage() {
     const supabase = createClient()
     const { toast } = useToast()
 
-    const { data: screensData, isLoading: isFetching, refresh: fetchData } = useScreens()
+    const { data: screensData, isLoading: isFetching, refresh: fetchData } = useScreensMetadata()
     const screens = screensData?.screens || []
     const locations = screensData?.locations || []
 
