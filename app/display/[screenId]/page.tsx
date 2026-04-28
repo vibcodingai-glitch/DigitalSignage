@@ -267,7 +267,18 @@ function ContentRenderer({
     isMuted: boolean
 }) {
     const type = item.content_item.type
-    const src = item.content_item.source_url || item.content_item.file_path || ''
+    let src = item.content_item.source_url || item.content_item.file_path || ''
+    
+    // Auto-transform PowerBI URLs for proper iframe embedding
+    if (type === 'powerbi_frame' && src.includes('powerbi.com')) {
+        try {
+            const u = new URL(src)
+            if (!u.searchParams.has('action')) u.searchParams.set('action', 'embedview')
+            if (!u.searchParams.has('chromeless')) u.searchParams.set('chromeless', '1')
+            src = u.toString()
+        } catch {}
+    }
+
     const transition = item.transition_type || defaultTransition || 'fade'
     const transitionClass = getTransitionClass(transition)
     const videoRef = useRef<HTMLVideoElement>(null)
