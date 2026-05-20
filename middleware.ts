@@ -27,12 +27,20 @@ export async function middleware(request: NextRequest) {
         }
     )
 
+    const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard')
+    const isAuthPage = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/register')
+
+    // OPTIMIZATION: Prevent 504 Gateway Timeouts on Vercel.
+    // supabase.auth.getUser() makes a network request. We ONLY want to do this
+    // blocking network call if the user is actually hitting a protected route.
+    // For display screens, API calls, and public pages, we bypass this check.
+    if (!isDashboardPage && !isAuthPage) {
+        return supabaseResponse
+    }
+
     const {
         data: { user },
     } = await supabase.auth.getUser()
-
-    const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard')
-    const isAuthPage = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/register')
 
     if (isDashboardPage && !user) {
         const url = request.nextUrl.clone()
