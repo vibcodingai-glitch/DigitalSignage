@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { LogoutButton } from "@/components/logout-button"
 import { UserProvider } from "@/hooks/use-user"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { CommandPalette } from "@/components/CommandPalette"
 
 // Helper moved outside component to avoid recreation on every render
 const getInitials = (name?: string) => {
@@ -254,18 +255,22 @@ export function DashboardShell({
     profile: UserProfile | null
 }) {
     return (
-        <UserProvider initialProfile={profile} initialUser={profile ? { id: profile.id, email: profile.email } : null}>
+        <UserProvider initialProfile={profile}>
             <SidebarProvider>
-                <div className="flex min-h-screen w-full bg-slate-50 dark:bg-[#070710]">
+                <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 w-full overflow-hidden">
                     <AppSidebar profile={profile} />
-                    <main className="flex w-0 flex-1 flex-col overflow-hidden">
+                    
+                    <div className="flex w-full flex-col flex-1 min-w-0 transition-all duration-300">
                         <Topbar profile={profile} />
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-                            {children}
-                        </div>
-                    </main>
+                        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+                            <div className="mx-auto max-w-7xl h-full">
+                                {children}
+                            </div>
+                        </main>
+                    </div>
                 </div>
             </SidebarProvider>
+            <CommandPalette />
         </UserProvider>
     )
 }

@@ -86,18 +86,20 @@ export const ContentPreviewDialog = React.memo(function ContentPreviewDialog({ i
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-4xl sm:h-[80vh] flex flex-col p-1 gap-0 bg-slate-950 border-slate-800 text-slate-100 overflow-hidden">
-                <div className="p-3 flex justify-between items-center border-b border-slate-800 bg-slate-900 absolute top-0 w-full z-10 shadow-sm opacity-0 hover:opacity-100 transition-opacity">
-                    <div className="flex items-center gap-2">
+            <DialogContent className="fixed right-0 top-0 h-screen w-full sm:w-[500px] md:w-[700px] lg:w-[900px] flex flex-col p-0 gap-0 bg-slate-950 border-l border-slate-800 text-slate-100 overflow-hidden animate-in slide-in-from-right duration-300 rounded-none sm:rounded-none m-0 max-w-none shadow-2xl z-[100] data-[state=closed]:slide-out-to-right">
+                {/* Header */}
+                <div className="p-4 flex justify-between items-center border-b border-slate-800 bg-slate-900 shrink-0 z-10 shadow-sm">
+                    <div className="flex items-center gap-3">
                         <Badge variant="outline" className={`capitalize ${item ? typeColors[item.type as keyof typeof typeColors] : ''} border-none bg-indigo-900/50`}>{item?.type}</Badge>
-                        <h3 className="font-semibold">{item?.name}</h3>
+                        <h3 className="font-semibold text-lg line-clamp-1">{item?.name}</h3>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="h-8 w-8 text-slate-400 hover:text-white">
+                    <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="h-8 w-8 text-slate-400 hover:text-white rounded-full">
                         <X className="h-5 w-5" />
                     </Button>
                 </div>
 
-                <div className="flex-1 w-full h-full flex items-center justify-center bg-black overflow-hidden relative group">
+                {/* Main Preview Area */}
+                <div className="flex-1 w-full h-[60vh] flex items-center justify-center bg-black overflow-hidden relative group shrink-0">
                     {item?.type === 'image' && (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={item.source_url!} alt={item.name} className="max-w-full max-h-full object-contain" />
@@ -188,10 +190,42 @@ export const ContentPreviewDialog = React.memo(function ContentPreviewDialog({ i
                             <iframe srcDoc={item.source_url} className="w-full h-full border-0" title={item.name} />
                         </div>
                     )}
+                </div>
 
-                    <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="absolute top-4 right-4 h-10 w-10 bg-black/50 text-white rounded-full opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                        <X className="h-5 w-5" />
-                    </Button>
+                {/* Metadata & Actions Area */}
+                <div className="flex-1 bg-slate-900 border-t border-slate-800 p-6 overflow-y-auto">
+                    <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Details</h4>
+                    
+                    <div className="space-y-4 text-sm">
+                        <div className="grid grid-cols-3 gap-2">
+                            <span className="text-slate-500">File Size</span>
+                            <span className="col-span-2 text-slate-300">
+                                {item?.file_size ? `${(item.file_size / 1024 / 1024).toFixed(2)} MB` : 'N/A'}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                            <span className="text-slate-500">Duration</span>
+                            <span className="col-span-2 text-slate-300">
+                                {item?.duration_seconds ? `${item.duration_seconds} seconds` : 'Default / Infinite'}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                            <span className="text-slate-500">Uploaded</span>
+                            <span className="col-span-2 text-slate-300">
+                                {item?.created_at ? new Date(item.created_at).toLocaleString() : 'N/A'}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                            <span className="text-slate-500">Source URL</span>
+                            <span className="col-span-2 text-slate-300 truncate">
+                                {item?.source_url ? (
+                                    <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-400 underline decoration-slate-700 underline-offset-2">
+                                        {item.source_url}
+                                    </a>
+                                ) : 'N/A'}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>

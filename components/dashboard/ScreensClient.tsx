@@ -78,6 +78,8 @@ function ScreensContent() {
         resolution: "1920x1080"
     })
 
+    const [viewMode, setViewMode] = useState<'grid' | 'wall'>('grid')
+
     // Filters — memoized to avoid recomputing on unrelated re-renders
     const filteredScreens = useMemo(() => screens.filter(screen => {
         const matchesSearch = (screen.name || "").toLowerCase().includes((searchQuery || "").toLowerCase())
@@ -101,35 +103,32 @@ function ScreensContent() {
 
         setIsSaving(true)
         try {
-            const payload = {
-                organization_id: orgId,
-                name: formData.name,
-                location_id: formData.location_id === "none" ? null : formData.location_id,
-                orientation: formData.orientation,
-                resolution: formData.resolution,
-                status: 'unassigned' // Let the DB constraints allow it
-            }
-
             const { data, error } = await supabase
                 .from('screens')
-                .insert(payload)
+                .insert([{
+                    ...formData,
+                    organization_id: orgId,
+                    display_key: crypto.randomUUID().replace(/-/g, ''),
+                    status: 'offline',
+                    location_id: formData.location_id === 'none' ? null : formData.location_id
+                }])
                 .select()
                 .single()
 
             if (error) throw error
 
-            setIsCreateOpen(false)
             setCreatedScreenUrl(getDisplayUrl(data.display_key))
+            setIsCreateOpen(false)
             setIsSuccessOpen(true)
-
-            // reset form
+            
+            // Reset form
             setFormData({
                 name: "",
                 location_id: "none",
                 orientation: "landscape",
                 resolution: "1920x1080"
             })
-
+            
             fetchData()
         } catch (error) {
             toast({
@@ -145,7 +144,7 @@ function ScreensContent() {
     const copyToClipboard = async (text: string) => {
         try {
             await navigator.clipboard.writeText(text)
-            toast({ title: "Copied to clipboard" })
+            toast({ title: "URL copied to clipboard!" })
         } catch {
             toast({
                 title: "Failed to copy",
@@ -219,12 +218,18 @@ function ScreensContent() {
                         <span className="text-slate-500 dark:text-slate-400">{screens.length} total</span>
                     </div>
                 </div>
-                <Button
-                    onClick={() => setIsCreateOpen(true)}
-                    className="gap-1.5 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 border-0 shadow-md shadow-blue-500/20 text-white"
-                >
-                    <Plus className="h-4 w-4" /> New Screen
-                </Button>
+                <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
+                        <Button variant="ghost" size="sm" className={`h-8 px-3 ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 shadow-sm' : ''}`} onClick={() => setViewMode('grid')}>List View</Button>
+                        <Button variant="ghost" size="sm" className={`h-8 px-3 ${viewMode === 'wall' ? 'bg-white dark:bg-slate-800 shadow-sm' : ''}`} onClick={() => setViewMode('wall')}>Wall View</Button>
+                    </div>
+                    <Button
+                        onClick={() => setIsCreateOpen(true)}
+                        className="gap-1.5 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 border-0 shadow-md shadow-blue-500/20 text-white"
+                    >
+                        <Plus className="h-4 w-4" /> New Screen
+                    </Button>
+                </div>
             </div>
 
             {/* Filter bar */}
@@ -305,21 +310,27 @@ function ScreensContent() {
 
                                 {/* Screen preview */}
                                 <div className="relative bg-gradient-to-br from-slate-900 to-slate-950 aspect-video flex items-center justify-center overflow-hidden">
-                                    <div className="absolute inset-0 opacity-5" style={{backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px'}} />
+                                    {viewMode === 'wall' ? (
+                                        <div className="absolute inset-0 w-[1920px] h-[1080px] origin-top-left transform" style={{ transform: 'scale(0.1666)' }}>
+                                            <iframe src={`/display/${screen.display_key}`} className="w-full h-full border-0 pointer-events-none" />
+                                        </div>
+                                    ) : (
+                                        <div className="absolute inset-0 opacity-5" style={{backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px'}} />
+                                    )}
 
                                     {/* Status badge */}
-                                    <div className="absolute top-2 left-2">
+                                    <div className="absolute top-2 left-2 z-10">
                                         {isOnline ? (
-                                            <span className="flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                            <span className="flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide backdrop-blur-md">
                                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                                 Live
                                             </span>
                                         ) : isOffline ? (
-                                            <span className="flex items-center gap-1 bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                            <span className="flex items-center gap-1 bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide backdrop-blur-md">
                                                 Offline
                                             </span>
                                         ) : (
-                                            <span className="flex items-center gap-1 bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                            <span className="flex items-center gap-1 bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide backdrop-blur-md">
                                                 Idle
                                             </span>
                                         )}

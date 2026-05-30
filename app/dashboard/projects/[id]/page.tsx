@@ -20,7 +20,7 @@ import {
     arrayMove,
     SortableContext,
     sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
+    horizontalListSortingStrategy,
     useSortable
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -636,7 +636,7 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
                                             </TabsList>
                                         </Tabs>
                                     )}
-                                    <SortableContext items={activeZonePlaylist.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                                    <SortableContext items={activeZonePlaylist.map(i => i.id)} strategy={horizontalListSortingStrategy}>
                                     {activeZonePlaylist.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/20">
                                             <div className="bg-white dark:bg-slate-900 p-4 rounded-full shadow-sm mb-4">
@@ -646,7 +646,8 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
                                             <p className="text-sm text-slate-500 max-w-sm mt-1">Drag assets from the left library panel into this zone to architect your playback timeline.</p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-3 pb-24">
+                                        <div className="flex flex-row overflow-x-auto gap-4 pb-24 pt-4 px-2 items-center min-h-[250px] custom-scrollbar">
+
                                             {activeZonePlaylist.map((playItem, index) => (
                                                 <SortablePlaylistItem
                                                     key={playItem.id}
@@ -808,11 +809,11 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
                                 </span>
                             </div>
                         ) : (
-                            <div className="opacity-90 scale-[1.02] pointer-events-none ring-2 ring-indigo-500 shadow-xl rounded-xl bg-white dark:bg-slate-900 h-20 flex w-[600px] border border-slate-200">
-                                <div className="w-10 bg-slate-50 dark:bg-slate-900 flex items-center justify-center border-r border-slate-200 dark:border-slate-800">
-                                    <GripVertical className="h-4 w-4 text-slate-400" />
+                            <div className="opacity-90 scale-[1.02] pointer-events-none ring-2 ring-indigo-500 shadow-xl rounded-xl bg-white dark:bg-slate-900 h-[220px] flex flex-col w-[200px] border border-slate-200">
+                                <div className="h-10 bg-slate-50 dark:bg-slate-900 flex items-center justify-center border-b border-slate-200 dark:border-slate-800">
+                                    <GripVertical className="h-4 w-4 text-slate-400 rotate-90" />
                                 </div>
-                                <div className="flex-1 flex items-center px-4 gap-4">
+                                <div className="flex-1 flex flex-col items-center justify-center px-4 gap-4">
                                     <Badge className="bg-slate-100 text-slate-800 border-none shadow-none" variant="outline">Moving Node</Badge>
                                 </div>
                             </div>
@@ -897,10 +898,14 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
         isDragging
     } = useSortable({ id: item.id });
 
+    const computedWidth = Math.max(180, Math.min(600, item.duration_override * 12)); // 12px per second, min 180px, max 600px
+
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
         zIndex: isDragging ? 2 : 1,
+        width: `${computedWidth}px`,
+        flexShrink: 0
     };
 
     return (
@@ -908,7 +913,7 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
             ref={setNodeRef}
             style={style}
             onClick={onSelect}
-            className={`group shadow-sm border overflow-hidden flex transition-all cursor-pointer ${isDragging
+            className={`group shadow-sm border overflow-hidden flex flex-col transition-all cursor-pointer h-[240px] ${isDragging
                 ? 'border-indigo-500 shadow-md ring-1 ring-indigo-500/50 opacity-80'
                 : isSelected
                     ? 'border-indigo-400 dark:border-indigo-500 ring-2 ring-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-900/10'
@@ -918,15 +923,15 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
             <div
                 {...attributes}
                 {...listeners}
-                className="w-12 bg-slate-50/50 dark:bg-slate-900 h-auto flex flex-col items-center justify-center border-r border-slate-200 dark:border-slate-800 cursor-grab active:cursor-grabbing text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors shrink-0"
+                className="h-8 bg-slate-50/50 dark:bg-slate-900 w-full flex items-center justify-center border-b border-slate-200 dark:border-slate-800 cursor-grab active:cursor-grabbing text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors shrink-0"
             >
-                <div className="text-[10px] font-mono font-bold text-slate-300 mb-1">{index + 1}</div>
-                <GripVertical className="h-4 w-4" />
+                <div className="text-[10px] font-mono font-bold text-slate-300 mr-2">{index + 1}</div>
+                <GripVertical className="h-4 w-4 rotate-90" />
             </div>
 
-            <CardContent className="p-4 flex-1 flex flex-col sm:flex-row items-start sm:items-center gap-4 min-w-0">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="h-12 w-12 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0">
+            <CardContent className="p-3 flex-1 flex flex-col items-start gap-2 min-w-0">
+                <div className="flex flex-col items-center w-full gap-2 min-w-0 flex-1">
+                    <div className="h-20 w-full rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0">
                         {item.content_item.type === 'image' && item.content_item.source_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={item.content_item.source_url} alt="" className="w-full h-full object-cover" />
@@ -935,43 +940,42 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
                         )}
                     </div>
 
-                    <div className="flex-1 min-w-0 pr-4">
-                        <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex flex-col w-full text-center">
+                        <div className="flex items-center justify-center gap-1 mb-1">
                             <Badge variant="outline" className={`text-[9px] h-4 py-0 px-1 uppercase leading-none border-none ${colorClass}`}>{item.content_item.type}</Badge>
                         </div>
-                        <h4 className="font-semibold text-base truncate text-slate-900 dark:text-slate-100">{item.content_item.name}</h4>
-                        {item.content_item.type === 'url' && (
-                            <p className="text-xs text-slate-500 truncate mt-0.5">{item.content_item.source_url}</p>
-                        )}
+                        <h4 className="font-semibold text-xs truncate text-slate-900 dark:text-slate-100 w-full">{item.content_item.name}</h4>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 shrink-0 self-end sm:self-auto w-full md:w-auto mt-3 sm:mt-0">
-                    <div className="flex items-center space-x-2 border rounded-md p-1 pl-3 bg-slate-50 dark:bg-slate-900" onClick={e => e.stopPropagation()}>
-                        <Label className="text-xs text-slate-500 font-mono tracking-wider">SEC</Label>
+                <div className="flex flex-row items-center justify-between w-full mt-auto pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
                         <Input
                             type="number"
                             min={1}
                             value={item.duration_override}
                             onChange={(e) => onUpdate({ duration_override: parseInt(e.target.value) || 0 })}
-                            className="h-8 w-16 text-center font-mono font-bold bg-white dark:bg-slate-950 border-slate-200"
+                            className="h-7 w-12 px-1 text-center font-mono text-xs bg-white dark:bg-slate-950 border-slate-200"
                         />
+                        <span className="text-[10px] text-slate-500 font-mono">s</span>
                     </div>
 
-                    <Select value={item.transition_type} onValueChange={(v) => onUpdate({ transition_type: v })}>
-                        <SelectTrigger className="w-[110px] h-10" onClick={e => e.stopPropagation()}>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="fade">Fade</SelectItem>
-                            <SelectItem value="slide-left">Slide L</SelectItem>
-                            <SelectItem value="none">Cut</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-1">
+                        <Select value={item.transition_type} onValueChange={(v) => onUpdate({ transition_type: v })}>
+                            <SelectTrigger className="w-20 h-7 text-xs px-2" onClick={e => e.stopPropagation()}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="fade" className="text-xs">Fade</SelectItem>
+                                <SelectItem value="slide-left" className="text-xs">Slide L</SelectItem>
+                                <SelectItem value="none" className="text-xs">Cut</SelectItem>
+                            </SelectContent>
+                        </Select>
 
-                    <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 ml-1" onClick={(e) => { e.stopPropagation(); onRemove(); }}>
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0" onClick={(e) => { e.stopPropagation(); onRemove(); }}>
+                            <Trash2 className="h-3 w-3" />
+                        </Button>
+                    </div>
                 </div>
             </CardContent>
         </Card>

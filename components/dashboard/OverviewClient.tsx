@@ -14,6 +14,8 @@ import {
     ScreenStatusTable, LivePreviewPanel, ActivityFeed
 } from "@/components/dashboard/DashboardWidgets"
 
+import { QuickStartWizard } from "@/components/dashboard/QuickStartWizard"
+
 function OverviewContent() {
     const { profile } = useUser()
     const { data: stats, isLoading: statsLoading, refresh: refreshStats } = useStats()
@@ -35,6 +37,8 @@ function OverviewContent() {
 
     const firstName = profile?.full_name?.split(' ')[0] || 'Admin'
 
+    const showWizard = !statsLoading && stats && (stats.screens.total === 0 || stats.projects === 0 || stats.contentItems === 0)
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
 
@@ -45,6 +49,10 @@ function OverviewContent() {
                 totalCount={stats?.screens.total || 0}
                 onlinePct={onlinePct}
             />
+
+            {showWizard && (
+                <QuickStartWizard stats={stats} />
+            )}
 
             {/* KPI Cards */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

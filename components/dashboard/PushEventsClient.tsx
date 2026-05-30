@@ -348,6 +348,59 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
                 </Button>
             </div>
 
+            {/* Quick Action Templates */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Button variant="outline" className="h-auto py-3 px-4 justify-start bg-red-50 hover:bg-red-100 border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/40" onClick={() => {
+                    setTargetType("all")
+                    setEventType("show_alert")
+                    setJsonPayloadStr(JSON.stringify({ title: "EMERGENCY EVACUATION", message: "Please proceed to the nearest exit immediately.", level: "critical" }, null, 2))
+                    setExpiryMinutes("60")
+                    setIsCreateOpen(true)
+                }}>
+                    <AlertTriangle className="h-5 w-5 mr-3 text-red-500" />
+                    <div className="flex flex-col items-start text-left">
+                        <span className="font-semibold text-sm">Fire Alarm</span>
+                        <span className="text-[10px] opacity-70">Evacuation notice</span>
+                    </div>
+                </Button>
+                
+                <Button variant="outline" className="h-auto py-3 px-4 justify-start bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-900/50 dark:text-emerald-400 dark:hover:bg-emerald-900/40" onClick={() => {
+                    setTargetType("all")
+                    setEventType("show_alert")
+                    setJsonPayloadStr(JSON.stringify({ title: "Welcome VIPs", message: "We are thrilled to have you here today.", level: "info" }, null, 2))
+                    setExpiryMinutes("60")
+                    setIsCreateOpen(true)
+                }}>
+                    <Zap className="h-5 w-5 mr-3 text-emerald-500" />
+                    <div className="flex flex-col items-start text-left">
+                        <span className="font-semibold text-sm">Welcome Message</span>
+                        <span className="text-[10px] opacity-70">VIP greeting overlay</span>
+                    </div>
+                </Button>
+
+                <Button variant="outline" className="h-auto py-3 px-4 justify-start bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/40" onClick={() => {
+                    setTargetType("all")
+                    setEventType("reload")
+                    setJsonPayloadStr("{}")
+                    setExpiryMinutes("1")
+                    setIsCreateOpen(true)
+                }}>
+                    <RefreshCw className="h-5 w-5 mr-3 text-blue-500" />
+                    <div className="flex flex-col items-start text-left">
+                        <span className="font-semibold text-sm">Force Refresh</span>
+                        <span className="text-[10px] opacity-70">Reload all screens</span>
+                    </div>
+                </Button>
+
+                <Button variant="outline" className="h-auto py-3 px-4 justify-start bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/80" onClick={() => setIsCreateOpen(true)}>
+                    <Plus className="h-5 w-5 mr-3 text-slate-500" />
+                    <div className="flex flex-col items-start text-left">
+                        <span className="font-semibold text-sm">Custom Event</span>
+                        <span className="text-[10px] opacity-70">Draft from scratch</span>
+                    </div>
+                </Button>
+            </div>
+
             {/* Stats row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
