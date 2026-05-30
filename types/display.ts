@@ -1,4 +1,4 @@
-export type ContentType = 'image' | 'video' | 'audio' | 'url' | 'webpage' | 'powerbi' | 'powerbi_frame' | 'dashboard' | 'html_snippet'
+export type ContentType = 'image' | 'video' | 'audio' | 'url' | 'webpage' | 'powerbi' | 'powerbi_frame' | 'dashboard' | 'html_snippet' | 'weather' | 'rss' | 'qr'
 
 export interface ContentItem {
     id: string
@@ -18,6 +18,19 @@ export interface PlaylistItem {
     transition_type: string | null
     content_item: ContentItem
     zone_index: number
+    
+    // Advanced Scheduling
+    valid_from?: string | null
+    valid_until?: string | null
+    day_part_start?: string | null
+    day_part_end?: string | null
+    days_of_week?: number[] | null
+    
+    // Interactivity
+    show_qr_code?: boolean
+    qr_code_url?: string | null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    interactive_action?: Record<string, any> | null
 }
 
 export interface Project {

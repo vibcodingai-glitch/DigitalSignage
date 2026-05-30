@@ -5,6 +5,8 @@ import { PlaylistItem } from "@/types/display"
 import { getTransitionClass, getProxiedUrl } from "@/lib/display-utils"
 import { MonitorPlay, AlertTriangle } from "lucide-react"
 import dynamic from 'next/dynamic'
+import WeatherWidget from "./WeatherWidget"
+import RssWidget from "./RssWidget"
 
 const TableauVizEmbed = dynamic(() => import('./TableauEmbed'), { ssr: false })
 
@@ -187,6 +189,24 @@ export default function ContentRenderer({
                     title={item.content_item.name}
                     allow="fullscreen"
                 />
+            </div>
+        )
+    }
+
+    if (type === 'weather') {
+        const location = (item.content_item.metadata?.location as string) || src || 'London'
+        return (
+            <div key={item.id} className={baseClass}>
+                <WeatherWidget location={location} />
+            </div>
+        )
+    }
+
+    if (type === 'rss') {
+        const feedUrl = src || 'https://feeds.bbci.co.uk/news/rss.xml'
+        return (
+            <div key={item.id} className={baseClass}>
+                <RssWidget url={feedUrl} />
             </div>
         )
     }

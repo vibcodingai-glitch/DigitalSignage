@@ -67,3 +67,48 @@ export function loadFromCache(key: string) {
         return null
     }
 }
+
+import type { PlaylistItem } from '@/types/display'
+
+export function isPlaylistItemValid(item: PlaylistItem): boolean {
+    const now = new Date()
+
+    // 1. Validity Dates
+    if (item.valid_from) {
+        const from = new Date(item.valid_from)
+        if (now < from) return false
+    }
+    if (item.valid_until) {
+        const until = new Date(item.valid_until)
+        if (now > until) return false
+    }
+
+    // 2. Days of week (0 = Sunday in JS, but let's assume 1-7 (Mon-Sun) or 0-6 like JS)
+    if (item.days_of_week && item.days_of_week.length > 0) {
+        const dow = now.getDay() // 0-6 (Sun-Sat)
+        if (!item.days_of_week.includes(dow)) {
+            return false
+        }
+    }
+
+    // 3. Day-Parting (Time)
+    if (item.day_part_start || item.day_part_end) {
+        const currentHours = now.getHours()
+        const currentMinutes = now.getMinutes()
+        const currentTotalMins = currentHours * 60 + currentMinutes
+
+        if (item.day_part_start) {
+            const [h, m] = item.day_part_start.split(':').map(Number)
+            const startMins = h * 60 + m
+            if (currentTotalMins < startMins) return false
+        }
+
+        if (item.day_part_end) {
+            const [h, m] = item.day_part_end.split(':').map(Number)
+            const endMins = h * 60 + m
+            if (currentTotalMins > endMins) return false
+        }
+    }
+
+    return true
+}

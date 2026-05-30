@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { PlaylistItem, Project } from "@/types/display"
 import ContentRenderer from "./ContentRenderer"
 import { MonitorPlay } from "lucide-react"
+import { isPlaylistItemValid } from "@/lib/display-utils"
+import { QRCodeOverlay } from "./QRCodeOverlay"
 
 export function ZoneRenderer({ 
     items, 
@@ -39,22 +41,55 @@ export function ZoneRenderer({
 
     useEffect(() => { playlistRef.current = items }, [items])
 
+    const getNextValidIndex = useCallback((startIndex: number, itemsToSearch: PlaylistItem[]) => {
+        if (itemsToSearch.length === 0) return -1;
+        let next = startIndex;
+        let attempts = 0;
+        while (attempts < itemsToSearch.length) {
+            if (isPlaylistItemValid(itemsToSearch[next])) return next;
+            next = (next + 1) % itemsToSearch.length;
+            attempts++;
+        }
+        return -1;
+    }, []);
+
     const advanceToNext = useCallback(() => {
         setCurrentIndex(prev => {
             const loop = project?.settings?.loop !== false
-            const next = prev + 1
+            let next = prev + 1
             if (next >= playlistRef.current.length) {
-                console.log('[Display] Reached end of playlist, looping:', loop)
-                return loop ? 0 : prev
+                if (!loop) return prev;
+                next = 0;
             }
-            console.log(`[Display] Advancing to item ${next + 1}/${playlistRef.current.length}`)
-            return next
+            
+            const nextValid = getNextValidIndex(next, playlistRef.current)
+            if (nextValid === -1) {
+                console.log('[Display] No valid items in playlist currently')
+                return prev // Fallback or clear display
+            }
+            return nextValid
         })
-    }, [project])
+    }, [project, getNextValidIndex])
 
     useEffect(() => {
         if (items.length === 0) return
-        const item = items[currentIndex]
+        let item = items[currentIndex]
+        
+        // Ensure the current item is actually valid, if not, jump to first valid
+        if (item && !isPlaylistItemValid(item)) {
+            const validIdx = getNextValidIndex(0, items)
+            if (validIdx !== -1 && validIdx !== currentIndex) {
+                setCurrentIndex(validIdx)
+                return
+            } else if (validIdx === -1) {
+                // No valid items
+                if (timerRef.current) clearTimeout(timerRef.current)
+                // Retry in 10s to see if validity changes
+                timerRef.current = setTimeout(advanceToNext, 10000)
+                return
+            }
+        }
+
         if (!item) {
             setCurrentIndex(0)
             return
@@ -144,6 +179,10 @@ export function ZoneRenderer({
                     <p className="text-white/60 font-medium text-sm">PowerBI Active on Relay</p>
                     <p className="text-white/20 text-[10px] font-mono mt-1 uppercase tracking-widest">{currentItem.content_item.name}</p>
                 </div>
+            )}
+            
+            {currentItem?.show_qr_code && currentItem?.qr_code_url && (
+                <QRCodeOverlay url={currentItem.qr_code_url} />
             )}
         </div>
     )

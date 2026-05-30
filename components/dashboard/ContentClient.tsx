@@ -18,12 +18,14 @@ import { UploadDialog } from "@/components/content/UploadDialog"
 import { ContentPreviewDialog } from "@/components/content/ContentPreviewDialog"
 import { BulkActionsBar } from "@/components/content/BulkActionsBar"
 import { LinkDialog } from "@/components/content/LinkDialog"
+import { WidgetDialog } from "@/components/content/WidgetDialog"
+import { LayoutPanelLeft } from "lucide-react"
 
 export interface ContentItem {
     id: string;
     organization_id: string;
     name: string;
-    type: 'image' | 'video' | 'audio' | 'powerbi' | 'powerbi_frame' | 'url' | 'webpage' | 'html_snippet' | 'dashboard';
+    type: 'image' | 'video' | 'audio' | 'powerbi' | 'powerbi_frame' | 'url' | 'webpage' | 'html_snippet' | 'dashboard' | 'weather' | 'rss' | 'qr';
     source_url: string | null;
     file_path: string | null;
     file_size: number | null;
@@ -65,6 +67,7 @@ function ContentContent() {
     // Dialogs
     const [isUploadOpen, setIsUploadOpen] = useState(false)
     const [isLinkOpen, setIsLinkOpen] = useState(false)
+    const [isWidgetOpen, setIsWidgetOpen] = useState(false)
     const [previewItem, setPreviewItem] = useState<ContentItem | null>(null)
 
     // Filtering
@@ -79,6 +82,7 @@ function ContentContent() {
             case "url": return item.type === "url" || item.type === "webpage"
             case "powerbi": return item.type === "powerbi" || item.type === "dashboard"
             case "html": return item.type === "html_snippet"
+            case "widgets": return item.type === "weather" || item.type === "rss"
             default: return true
         }
     })
@@ -159,6 +163,9 @@ function ContentContent() {
                     <h1 className="text-2xl font-bold tracking-tight">Content Library</h1>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Button onClick={() => setIsWidgetOpen(true)} variant="outline" className="flex-1 sm:flex-none hidden lg:flex">
+                        <LayoutPanelLeft className="mr-2 h-4 w-4" /> Create Widget
+                    </Button>
                     <Button onClick={() => setIsLinkOpen(true)} variant="outline" className="flex-1 sm:flex-none">
                         <LinkIcon className="mr-2 h-4 w-4" /> Add Link
                     </Button>
@@ -179,6 +186,7 @@ function ContentContent() {
                         <TabsTrigger value="url" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600 dark:data-[state=active]:bg-indigo-900/30 dark:data-[state=active]:text-indigo-400">Web Links</TabsTrigger>
                         <TabsTrigger value="powerbi" className="data-[state=active]:bg-amber-50 data-[state=active]:text-amber-600 dark:data-[state=active]:bg-amber-900/30 dark:data-[state=active]:text-amber-400">PowerBI</TabsTrigger>
                         <TabsTrigger value="html" className="data-[state=active]:bg-slate-100 data-[state=active]:text-slate-600 dark:data-[state=active]:bg-slate-800 dark:data-[state=active]:text-slate-400">HTML</TabsTrigger>
+                        <TabsTrigger value="widgets" className="data-[state=active]:bg-sky-50 data-[state=active]:text-sky-600 dark:data-[state=active]:bg-sky-900/30 dark:data-[state=active]:text-sky-400">Widgets</TabsTrigger>
                     </TabsList>
                 </Tabs>
                 <div className="relative w-full md:w-64 shrink-0">
@@ -238,6 +246,13 @@ function ContentContent() {
                 onItemCreated={handleLinkItemCreated}
                 onItemConfirmed={handleLinkItemConfirmed}
                 onError={fetchContent}
+            />
+
+            {/* Widget Dialog */}
+            <WidgetDialog
+                open={isWidgetOpen}
+                onOpenChange={setIsWidgetOpen}
+                onWidgetCreated={fetchContent}
             />
 
             {/* Preview Modal */}

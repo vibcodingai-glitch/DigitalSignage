@@ -56,6 +56,12 @@ type PlaylistItem = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     content_item: any;
     zone_index: number;
+    valid_from?: string;
+    valid_until?: string;
+    day_part_start?: string;
+    day_part_end?: string;
+    show_qr_code?: boolean;
+    qr_code_url?: string;
 }
 
 const ZONE_CONFIG: Record<string, { index: number, label: string }[]> = {
@@ -888,7 +894,10 @@ function DraggableLibraryItem({ item, onAdd, icon, colorClass }: { item: any, on
 
 
 // Sortable Middle Timeline Item
+import { DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
+
 function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClass, isSelected, onSelect }: { item: PlaylistItem, index: number, onUpdate: (updates: Partial<PlaylistItem>) => void, onRemove: () => void, icon: React.ReactNode, colorClass: string, isSelected?: boolean, onSelect?: () => void }) {
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const {
         attributes,
         listeners,
@@ -972,12 +981,73 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
                             </SelectContent>
                         </Select>
 
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 shrink-0" onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }}>
+                            <Settings2 className="h-3 w-3" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0" onClick={(e) => { e.stopPropagation(); onRemove(); }}>
                             <Trash2 className="h-3 w-3" />
                         </Button>
                     </div>
                 </div>
             </CardContent>
+
+            <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                <DialogContent className="sm:max-w-md" onClick={e => e.stopPropagation()}>
+                    <DialogHeader>
+                        <DialogTitle>Node Settings & Rules</DialogTitle>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-bold">Validity Dates</Label>
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <Label className="text-xs text-slate-500 mb-1 block">Start Date</Label>
+                                    <Input type="date" value={item.valid_from || ""} onChange={e => onUpdate({ valid_from: e.target.value })} />
+                                </div>
+                                <div className="flex-1">
+                                    <Label className="text-xs text-slate-500 mb-1 block">End Date</Label>
+                                    <Input type="date" value={item.valid_until || ""} onChange={e => onUpdate({ valid_until: e.target.value })} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-sm font-bold">Day-Parting</Label>
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <Label className="text-xs text-slate-500 mb-1 block">Time Start</Label>
+                                    <Input type="time" value={item.day_part_start || ""} onChange={e => onUpdate({ day_part_start: e.target.value })} />
+                                </div>
+                                <div className="flex-1">
+                                    <Label className="text-xs text-slate-500 mb-1 block">Time End</Label>
+                                    <Input type="time" value={item.day_part_end || ""} onChange={e => onUpdate({ day_part_end: e.target.value })} />
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-slate-500">If set, the item will be skipped outside these hours.</p>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-sm font-bold">QR Code Handoff</Label>
+                                <Switch checked={item.show_qr_code || false} onCheckedChange={v => onUpdate({ show_qr_code: v })} />
+                            </div>
+                            {item.show_qr_code && (
+                                <div>
+                                    <Label className="text-xs text-slate-500 mb-1 block">Destination URL</Label>
+                                    <Input placeholder="https://..." value={item.qr_code_url || ""} onChange={e => onUpdate({ qr_code_url: e.target.value })} />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button type="button" className="w-full">Done</Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     )
 }
