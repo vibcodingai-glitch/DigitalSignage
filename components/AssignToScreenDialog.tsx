@@ -73,7 +73,7 @@ export function AssignToScreenDialog({
   }, [open, organizationId, supabase])
 
   const filteredScreens = screens.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (s.name || "").toLowerCase().includes((searchQuery || "").toLowerCase())
   )
 
   const handleAssign = async () => {

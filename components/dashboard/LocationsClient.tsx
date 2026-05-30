@@ -85,7 +85,7 @@ function LocationsContent() {
     })
 
     const filteredLocations = locations.filter(loc =>
-        loc.name.toLowerCase().includes(searchQuery.toLowerCase())
+        (loc.name || "").toLowerCase().includes((searchQuery || "").toLowerCase())
     )
 
     const handleOpenForm = (location?: Location) => {

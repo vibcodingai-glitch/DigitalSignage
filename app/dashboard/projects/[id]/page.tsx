@@ -474,7 +474,7 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
     }
 
     const filteredLibrary = useMemo(() => {
-        return libraryItems.filter(item => item.name.toLowerCase().includes(librarySearch.toLowerCase()))
+        return libraryItems.filter(item => (item.name || '').toLowerCase().includes((librarySearch || '').toLowerCase()))
     }, [libraryItems, librarySearch])
 
     const totalDuration = useMemo(() => {

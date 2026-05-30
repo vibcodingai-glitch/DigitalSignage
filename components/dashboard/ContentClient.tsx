@@ -69,7 +69,7 @@ function ContentContent() {
 
     // Filtering
     const filteredItems = items.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        const matchesSearch = (item.name || "").toLowerCase().includes((searchQuery || "").toLowerCase())
         if (!matchesSearch) return false
 
         switch (selectedTab) {

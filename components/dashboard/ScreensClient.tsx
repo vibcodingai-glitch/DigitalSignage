@@ -80,7 +80,7 @@ function ScreensContent() {
 
     // Filters — memoized to avoid recomputing on unrelated re-renders
     const filteredScreens = useMemo(() => screens.filter(screen => {
-        const matchesSearch = screen.name.toLowerCase().includes(searchQuery.toLowerCase())
+        const matchesSearch = (screen.name || "").toLowerCase().includes((searchQuery || "").toLowerCase())
         const matchesStatus = statusFilter === 'all' || screen.status === statusFilter
         const matchesLocation = locationFilter === 'all'
             || (locationFilter === 'none' && !screen.location_id)
