@@ -32,8 +32,8 @@ export default async function ProjectsPage() {
 
     // Provide initial fallback data for SWR hooks
     const fallback = {
-        'dashboard-projects': dashboardData.projects,
-        'screens-metadata': {
+        [`dashboard-projects-${profile.organization_id}`]: dashboardData.projects,
+        [`screens-metadata-${profile.organization_id}`]: {
             screens: dashboardData.screens,
             locations: dashboardData.locations,
             projects: dashboardData.projects

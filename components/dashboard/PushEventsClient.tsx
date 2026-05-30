@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo } from "react"
+import { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { formatDistanceToNow, format } from "date-fns"
@@ -150,7 +150,12 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
+    const hasMounted = useRef(false)
     useEffect(() => {
+        if (!hasMounted.current) {
+            hasMounted.current = true
+            return
+        }
         fetchData()
     }, [fetchData])
 

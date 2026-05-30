@@ -34,13 +34,13 @@ export default async function DashboardPage() {
 
     // Provide initial fallback data for SWR hooks so they don't fetch on initial mount
     const fallback = {
-        'dashboard-stats': dashboardData.stats,
-        'screens-metadata': {
+        [`dashboard-stats-${profile.organization_id}`]: dashboardData.stats,
+        [`screens-metadata-${profile.organization_id}`]: {
             screens: dashboardData.screens,
             locations: [], // locations and projects not strictly needed for overview, but could pass if needed
             projects: []
         },
-        'dashboard-activity': dashboardData.activity,
+        [`dashboard-activity-${profile.organization_id}`]: dashboardData.activity,
     }
 
     return (

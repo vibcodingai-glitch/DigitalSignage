@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
@@ -84,7 +84,12 @@ export default function MonitoringClient({ fallbackData }: { fallbackData: any }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
+    const hasMounted = useRef(false)
     useEffect(() => {
+        if (!hasMounted.current) {
+            hasMounted.current = true
+            return
+        }
         fetchData()
     }, [fetchData])
 
