@@ -9,7 +9,7 @@ export const useContent = () => {
             .select('id, name, type, file_url, thumbnail_url, duration_seconds, created_at, organization_id')
             .order('created_at', { ascending: false })
             .limit(200)
-            .then(r => r.data);
+            .then(r => r.data as any);
     }, {
         revalidateOnFocus: false,
         dedupingInterval: 30_000,

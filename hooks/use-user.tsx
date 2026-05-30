@@ -32,19 +32,40 @@ const UserContext = createContext<UserContextValue>({
  * Provider that manages auth state in a single place.
  * Wrap your layout with <UserProvider> so all children share
  * ONE getSession() call, ONE profile fetch, and ONE onAuthStateChange listener.
+ *
+ * PERF: When `initialProfile` is provided (from server-side fetch in layout),
+ * the provider skips the entire client-side auth + profile waterfall.
  */
-export function UserProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<User | null>(null)
-    const [profile, setProfile] = useState<Profile | null>(null)
+export function UserProvider({
+    children,
+    initialProfile,
+    initialUser,
+}: {
+    children: ReactNode
+    initialProfile?: Profile | null
+    initialUser?: { id: string; email?: string } | null
+}) {
+    const [user, setUser] = useState<User | null>(initialUser as User | null)
+    const [profile, setProfile] = useState<Profile | null>(initialProfile ?? null)
     const [session, setSession] = useState<any | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
+    const [isLoading, setIsLoading] = useState(!initialProfile) // Not loading if pre-seeded
     const supabase = createClient()
 
     useEffect(() => {
         let mounted = true
 
         async function init() {
-            // 1. Use getSession() — reads from local cache, no network call
+            // If we already have server-side data, just get the session for token management
+            if (initialProfile) {
+                const { data: { session } } = await supabase.auth.getSession()
+                if (mounted) {
+                    setSession(session)
+                    if (session?.user) setUser(session.user)
+                }
+                return
+            }
+
+            // Fallback: client-side fetch (for pages without SSR)
             const { data: { session } } = await supabase.auth.getSession()
             const sessionUser = session?.user ?? null
 
@@ -52,7 +73,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 setUser(sessionUser)
                 setSession(session)
 
-                // 2. Fetch profile in parallel — don't block on it
                 supabase
                     .from('profiles')
                     .select('*, organizations(*)')
@@ -65,7 +85,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     })
             }
 
-            // Mark loading done as soon as session is known (profile loads async)
             if (mounted) setIsLoading(false)
         }
 

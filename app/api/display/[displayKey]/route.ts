@@ -4,6 +4,9 @@
  * Server-side display data resolver. Uses the service role key so RLS
  * policies never block a display screen from loading its assigned content.
  * This is the correct pattern for public kiosk/display endpoints.
+ *
+ * PERF: All independent queries are parallelized with Promise.all().
+ * Response includes Cache-Control for Vercel CDN edge caching.
  */
 
 import { NextResponse } from 'next/server'
@@ -16,7 +19,6 @@ const supabaseAdmin = createClient(
 )
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 export async function GET(
   _request: Request,
@@ -25,10 +27,10 @@ export async function GET(
   const { displayKey } = params
 
   try {
-    // 1. Fetch screen by display_key
+    // ── BATCH 1: Fetch screen first (needed to derive screen.id) ──
     const { data: screen, error: screenError } = await supabaseAdmin
       .from('screens')
-      .select('*')
+      .select('id, display_key, name, status, active_project_id, location_id, current_state, orientation, resolution')
       .eq('display_key', displayKey)
       .single()
 
@@ -36,37 +38,35 @@ export async function GET(
       return NextResponse.json({ error: 'Screen not found' }, { status: 404 })
     }
 
-    // 2. Resolve timezone from location
-    let timezone = 'UTC'
-    if (screen.location_id) {
-      const { data: loc } = await supabaseAdmin
-        .from('locations')
-        .select('timezone')
-        .eq('id', screen.location_id)
-        .single()
-      if (loc?.timezone) timezone = loc.timezone
-    }
+    // ── BATCH 2: Location + assignments in PARALLEL ──
+    const [locationResult, assignmentsResult] = await Promise.all([
+      screen.location_id
+        ? supabaseAdmin.from('locations').select('timezone').eq('id', screen.location_id).single()
+        : Promise.resolve({ data: null }),
+      supabaseAdmin
+        .from('screen_projects')
+        .select('project_id, schedule_type, days_of_week, start_time, end_time, start_date, end_date, priority')
+        .eq('screen_id', screen.id)
+        .eq('is_active', true)
+        .order('priority', { ascending: false })
+        .order('sort_order', { ascending: true }),
+    ])
 
-    // 3. Resolve winning project via screen_projects schedule
-    const { data: assignments } = await supabaseAdmin
-      .from('screen_projects')
-      .select('*')
-      .eq('screen_id', screen.id)
-      .eq('is_active', true)
-      .order('priority', { ascending: false })
-      .order('sort_order', { ascending: true })
+    const timezone = locationResult.data?.timezone || 'UTC'
+    const assignments = assignmentsResult.data
 
+    // ── Resolve winning project (pure computation, no I/O) ──
     let winningProjectId: string | null = null
 
     if (assignments && assignments.length > 0) {
-      // Evaluate scheduled assignments first
       const now = new Date()
       const tzOffset = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
       const dayOfWeek = tzOffset.getDay()
-      const timeStr = tzOffset.toTimeString().slice(0, 5) // "HH:MM"
-      const dateStr = tzOffset.toISOString().slice(0, 10) // "YYYY-MM-DD"
+      const timeStr = tzOffset.toTimeString().slice(0, 5)
+      const dateStr = tzOffset.toISOString().slice(0, 10)
 
-      for (const a of assignments.filter((a) => a.schedule_type === 'scheduled')) {
+      for (const a of assignments) {
+        if (a.schedule_type !== 'scheduled') continue
         if (!a.days_of_week.includes(dayOfWeek)) continue
         if (timeStr < a.start_time || timeStr >= a.end_time) continue
         if (a.start_date && dateStr < a.start_date) continue
@@ -75,52 +75,49 @@ export async function GET(
         break
       }
 
-      // Fall back to always-on
       if (!winningProjectId) {
         const alwaysOn = assignments.find((a) => a.schedule_type === 'always')
         if (alwaysOn) winningProjectId = alwaysOn.project_id
       }
     }
 
-    // Fall back to screen.active_project_id
     if (!winningProjectId && screen.active_project_id) {
       winningProjectId = screen.active_project_id
     }
 
     if (!winningProjectId) {
-      console.log(`[API Display] No project assigned for displayKey: ${displayKey}`)
-      return NextResponse.json({ screen, project: null, playlist: [], timezone })
+      const res = NextResponse.json({ screen, project: null, playlist: [], timezone })
+      res.headers.set('Cache-Control', 's-maxage=5, stale-while-revalidate=30')
+      return res
     }
 
-    console.log(`[API Display] Resolved winningProjectId: ${winningProjectId} for displayKey: ${displayKey}`)
+    // ── BATCH 3: Project + playlist in PARALLEL ──
+    const [projectResult, playlistResult] = await Promise.all([
+      supabaseAdmin
+        .from('projects')
+        .select('id, name, settings, layout_type, layout_settings')
+        .eq('id', winningProjectId)
+        .single(),
+      supabaseAdmin
+        .from('playlist_items')
+        .select('*, content_item:content_items(id, name, type, source_url, file_path, thumbnail_url, duration_seconds, metadata)')
+        .eq('project_id', winningProjectId)
+        .order('order_index', { ascending: true }),
+    ])
 
-    // 4. Fetch project + playlist
-    const { data: project } = await supabaseAdmin
-      .from('projects')
-      .select('id, name, settings, layout_type, layout_settings')
-      .eq('id', winningProjectId)
-      .single()
-
-    const { data: playlistData } = await supabaseAdmin
-      .from('playlist_items')
-      .select('*, content_item:content_items(*)')
-      .eq('project_id', winningProjectId)
-      .order('order_index', { ascending: true })
-
-    console.log(`[API Display] RAW playlistData for project ${winningProjectId}:`, JSON.stringify(playlistData, null, 2))
-
-    const playlist = (playlistData || []).map((item: any) => ({
+    const project = projectResult.data
+    const playlist = (playlistResult.data || []).map((item: any) => ({
       ...item,
-      // Ensure zone_index is always a number (defaults to 0 for fullscreen)
       zone_index: typeof item.zone_index === 'number' ? item.zone_index : 0,
       content_item: Array.isArray(item.content_item)
         ? item.content_item[0]
         : item.content_item,
     }))
 
-    console.log(`[API Display] Returning ${playlist.length} items for project ${winningProjectId}`)
-
-    return NextResponse.json({ screen, project, playlist, timezone })
+    const res = NextResponse.json({ screen, project, playlist, timezone })
+    // Cache for 10s at edge, serve stale for up to 50s while revalidating
+    res.headers.set('Cache-Control', 's-maxage=10, stale-while-revalidate=50')
+    return res
   } catch (err) {
     console.error('[/api/display] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

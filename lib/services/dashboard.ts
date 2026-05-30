@@ -35,6 +35,11 @@ export interface Project {
     is_active: boolean;
     created_at: string;
     item_count: number;
+    screen_id?: string | null;
+    numItems?: number;
+    totalDuration?: number;
+    numSchedules?: number;
+    screen?: { id: string; name: string } | null;
 }
 
 /**
@@ -45,7 +50,7 @@ export const DashboardService = {
     async getScreens(): Promise<{ screens: Screen[], locations: any[], projects: any[] }> {
         const supabase = getClient();
         const [{ data: screens }, { data: locations }, { data: projects }] = await Promise.all([
-            supabase.from('screens').select('*').order('name'),
+            supabase.from('screens').select('id, name, status, display_key, location_id, active_project_id, last_heartbeat, orientation, resolution, current_state').order('name'),
             supabase.from('locations').select('id, name'),
             supabase.from('projects').select('id, name')
         ]);
@@ -84,38 +89,47 @@ export const DashboardService = {
 
     async getProjects(): Promise<Project[]> {
         const supabase = getClient();
-        // Two fast flat queries — no nested joins, no full table scans.
+        // PERF: Fetch projects first, then strictly filter playlist items by project IDs.
+        // Failing to do this forces Postgres to run the RLS policy on EVERY row in the playlist_items table across all tenants.
+        const { data: projects } = await supabase
+            .from('projects')
+            .select('id, name, is_active, screen_id, settings, created_at, organization_id')
+            .order('created_at', { ascending: false });
+
+        const projectIds = (projects || []).map(p => p.id);
+
         const [
-            { data: projects },
             { data: items },
             { data: screens },
         ] = await Promise.all([
-            supabase.from('projects').select('id, name, is_active, screen_id, settings, created_at, organization_id').order('created_at', { ascending: false }),
-            // Only fetch the columns we need for counting and duration — no content join.
-            supabase.from('playlist_items').select('id, project_id, duration_override, zone_index'),
-            // Fetch screens in the same batch (already in cache from getScreens most of the time)
+            projectIds.length > 0 
+                ? supabase.from('playlist_items').select('project_id, duration_override').in('project_id', projectIds)
+                : Promise.resolve({ data: [] }),
             supabase.from('screens').select('id, name'),
         ]);
 
-        const itemsByProject = new Map<string, typeof items>()
+        // Single-pass grouping by project_id
+        const countByProject = new Map<string, { count: number; totalDuration: number }>()
         for (const i of items || []) {
-            if (!itemsByProject.has(i.project_id)) itemsByProject.set(i.project_id, [])
-            itemsByProject.get(i.project_id)!.push(i)
+            const entry = countByProject.get(i.project_id)
+            if (entry) {
+                entry.count++
+                entry.totalDuration += (i.duration_override || 10)
+            } else {
+                countByProject.set(i.project_id, { count: 1, totalDuration: i.duration_override || 10 })
+            }
         }
         const screenMap = new Map((screens || []).map(s => [s.id, s]))
 
         return (projects || []).map(p => {
-            const pItems = itemsByProject.get(p.id) || [];
+            const stats = countByProject.get(p.id) || { count: 0, totalDuration: 0 };
             const pScreen = screenMap.get(p.screen_id) || null;
-
-            // Use duration_override for total, default to 10 s per item.
-            const totalDuration = pItems.reduce((acc, pi) => acc + (pi.duration_override || 10), 0);
 
             return {
                 ...p,
-                numItems: pItems.length,
-                totalDuration,
-                numSchedules: 0,   // Not needed on the list page; avoids a 3rd query
+                numItems: stats.count,
+                totalDuration: stats.totalDuration,
+                numSchedules: 0,
                 screen: pScreen
             } as any;
         });
@@ -169,31 +183,29 @@ export const DashboardService = {
 
     async getProjectDetails(projectId: string) {
         const supabase = getClient();
+        // PERF: Fetch project + playlist + schedules in parallel.
+        // Content library is NOT eagerly loaded — it's fetched on-demand
+        // when the user opens the content picker.
         const [
             { data: project, error: projError },
-            { data: playlist, error: plError },
-            { data: schedules, error: schedError },
-            { data: library, error: libError },
+            { data: playlist },
+            { data: schedules },
         ] = await Promise.all([
             supabase.from('projects').select('*').eq('id', projectId).single(),
             supabase.from('playlist_items')
-                .select('id, content_item_id, order_index, duration_override, transition_type, zone_index, content_item:content_items(*)')
+                .select('id, content_item_id, order_index, duration_override, transition_type, zone_index, content_item:content_items(id, name, type, file_url, source_url, file_path, thumbnail_url, duration_seconds, metadata)')
                 .eq('project_id', projectId)
                 .order('zone_index', { ascending: true })
                 .order('order_index', { ascending: true }),
             supabase.from('schedules').select('*').eq('project_id', projectId).order('priority', { ascending: false }),
-            supabase.from('content_items')
-                .select('id, name, type, file_url, thumbnail_url, duration_seconds, created_at')
-                .order('created_at', { ascending: false })
-                .limit(500),
         ]);
 
         if (projError) throw projError;
 
-        // Fetch screen in parallel (moved out of sequential await)
+        // Fetch screen in parallel only if needed
         let screen = null;
         if (project.screen_id) {
-            const { data } = await supabase.from('screens').select('*').eq('id', project.screen_id).single();
+            const { data } = await supabase.from('screens').select('id, name, display_key, status, location_id, orientation, resolution').eq('id', project.screen_id).single();
             screen = data;
         }
 
@@ -209,7 +221,21 @@ export const DashboardService = {
                 zone_index: item.zone_index || 0
             })),
             schedules: schedules || [],
-            library: library || []
+            library: []  // Loaded on-demand via getContentLibrary()
         };
+    },
+
+    /**
+     * Fetches the content library on-demand (called when user opens content picker).
+     * Separated from getProjectDetails to avoid loading 500 items on every page view.
+     */
+    async getContentLibrary(limit = 200) {
+        const supabase = getClient();
+        const { data } = await supabase
+            .from('content_items')
+            .select('id, name, type, file_url, source_url, file_path, thumbnail_url, duration_seconds, created_at')
+            .order('created_at', { ascending: false })
+            .limit(limit);
+        return data || [];
     }
 };

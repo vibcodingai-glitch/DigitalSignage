@@ -26,6 +26,7 @@ export interface ContentItem {
     file_path: string | null;
     file_size: number | null;
     thumbnail_url: string | null;
+    duration_seconds: number | null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata: any;
     created_at: string;
