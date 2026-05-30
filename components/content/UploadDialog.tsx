@@ -15,7 +15,7 @@ import {
     UploadCloud, Image as ImageIcon,
     Video as VideoIcon, File as FileIcon, X, ArrowUpCircle
 } from "lucide-react"
-import type { ContentItem } from "@/app/dashboard/content/page"
+import type { ContentItem } from "@/components/dashboard/ContentClient"
 
 interface UploadFileItem {
     file: File

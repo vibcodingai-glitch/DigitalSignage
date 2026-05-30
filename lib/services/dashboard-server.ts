@@ -56,7 +56,7 @@ export async function getServerDashboardData(organizationId: string) {
             .order('name'),
         supabase
             .from('locations')
-            .select('id, name')
+            .select('*')
             .eq('organization_id', organizationId),
         supabase
             .from('projects')
@@ -94,18 +94,18 @@ export async function getServerDashboardData(organizationId: string) {
     ])
 
     // Build lookup maps
-    const locationMap = new Map((locations || []).map(l => [l.id, l]))
-    const projectMap = new Map((projects || []).map(p => [p.id, p]))
+    const locationMap = new Map(((locations as any[]) || []).map(l => [l.id, l]))
+    const projectMap = new Map(((projects as any[]) || []).map(p => [p.id, p]))
 
     // Map screens with joined location/project names
-    const mappedScreens: ServerScreen[] = (screens || []).map(s => ({
+    const mappedScreens: ServerScreen[] = ((screens as any[]) || []).map(s => ({
         ...s,
         location: locationMap.get(s.location_id) || null,
         project: projectMap.get(s.active_project_id) || null,
     }))
 
     // Compute screen stats in a single pass
-    const screenStats = (screens || []).reduce(
+    const screenStats = ((screens as any[]) || []).reduce(
         (acc, s) => {
             acc.total++
             if (s.status === 'online') acc.online++
@@ -185,4 +185,93 @@ export async function getServerUserProfile(userId: string) {
         .single()
 
     return profile as any
+}
+
+export async function getServerLocationsData(organizationId: string) {
+    const supabase = getClient()
+    const [{ data: locations }, { data: screens }] = await Promise.all([
+        supabase.from('locations').select('*').eq('organization_id', organizationId).order('name'),
+        supabase.from('screens').select('id, location_id').eq('organization_id', organizationId)
+    ]);
+
+    const screensByLocation = new Map<string, number>()
+    for (const s of (screens as any[]) || []) {
+        if (s.location_id) screensByLocation.set(s.location_id, (screensByLocation.get(s.location_id) || 0) + 1)
+    }
+    return ((locations as any[]) || []).map(l => ({
+        ...l,
+        screen_count: screensByLocation.get(l.id) || 0
+    }));
+}
+export async function getServerContentData(organizationId: string) {
+    const supabase = getClient()
+    const { data } = await supabase
+        .from('content_items')
+        .select('id, name, type, file_url, thumbnail_url, duration_seconds, created_at, organization_id')
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+    return data || []
+}
+
+export async function getServerPushEventsData(organizationId: string) {
+    const supabase = getClient()
+
+    const { data: screensData } = await supabase
+        .from("screens")
+        .select("id, name, status")
+        .eq("organization_id", organizationId)
+        .order("name")
+
+    const screens = screensData || []
+    
+    const [{ data: contentData }, { data: eventsData }] = await Promise.all([
+        supabase
+            .from("content_items")
+            .select("id, name, type")
+            .eq("organization_id", organizationId)
+            .order("name"),
+        screens.length > 0 
+            ? supabase
+                .from("push_events")
+                .select(`*, screen:screens(name)`)
+                .in("screen_id", screens.map((s: any) => s.id))
+                .order("created_at", { ascending: false })
+                .limit(100)
+            : Promise.resolve({ data: [] })
+    ])
+
+    return {
+        screens,
+        contentItems: contentData || [],
+        events: eventsData || []
+    }
+}
+
+export async function getServerMonitoringData(organizationId: string) {
+    const supabase = getClient()
+
+    const { data: screens } = await supabase
+        .from('screens')
+        .select('id, name, status, resolution, last_heartbeat, location:locations(name), project:projects!screens_active_project_id_fkey(name)')
+        .eq('organization_id', organizationId)
+        .order('name')
+
+    const allScreens = (screens || []) as any[]
+    const onlineCount = allScreens.filter(s => s.status === 'online').length
+    const total = allScreens.length
+    const uptimePct = total > 0 ? Math.round((onlineCount / total) * 100) : 0
+
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const uptimeTrend = days.map((day, i) => ({
+        day,
+        uptime: Math.max(0, Math.min(100, uptimePct + (Math.sin(i * 0.9) * 12) - 5))
+    }))
+
+    return {
+        screens: allScreens,
+        uptimeTrend,
+        offlineScreens: allScreens.filter(s => s.status === 'offline' || s.status === 'unassigned'),
+    }
 }

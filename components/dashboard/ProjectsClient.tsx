@@ -274,12 +274,12 @@ function ProjectsContent() {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-sm text-slate-600 dark:text-slate-300">
-                                            {formatDuration(project.totalDuration)}
+                                            {formatDuration(project.totalDuration || 0)}
                                         </TableCell>
                                         <TableCell className="text-center">
-                                            {project.numSchedules > 0 ? (
+                                            {(project.numSchedules || 0) > 0 ? (
                                                 <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-none">
-                                                    <Calendar className="h-3 w-3 mr-1" /> {project.numSchedules} Rule(s)
+                                                    <Calendar className="h-3 w-3 mr-1" /> {project.numSchedules || 0} Rule(s)
                                                 </Badge>
                                             ) : (
                                                 <span className="text-xs text-slate-400">-</span>

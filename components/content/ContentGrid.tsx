@@ -13,7 +13,7 @@ import {
     Video as VideoIcon, Music, Globe, BarChart2, Code, Eye, Copy, UploadCloud,
     Link as LinkIcon
 } from "lucide-react"
-import type { ContentItem } from "@/app/dashboard/content/page"
+import type { ContentItem } from "@/components/dashboard/ContentClient"
 import { formatBytes } from "@/lib/utils/embed-utils"
 
 const typeIcons: Record<ContentItem['type'], React.ReactNode> = {

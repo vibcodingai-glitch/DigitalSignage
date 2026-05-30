@@ -5,7 +5,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Music, ExternalLink, X } from "lucide-react"
-import type { ContentItem } from "@/app/dashboard/content/page"
+import type { ContentItem } from "@/components/dashboard/ContentClient"
 import { isTableauUrl, getTableauViewsUrl, getEmbedUrl } from "@/lib/utils/embed-utils"
 import { typeColors } from "@/components/content/ContentGrid"
 

@@ -47,3 +47,23 @@ export function getProxiedUrl(url: string, appUrl: string): string {
         return url
     }
 }
+
+export function saveToCache(key: string, data: any) {
+    if (typeof window === 'undefined') return
+    try {
+        localStorage.setItem(`display-cache-${key}`, JSON.stringify(data))
+    } catch (e) {
+        console.error('Failed to save to cache', e)
+    }
+}
+
+export function loadFromCache(key: string) {
+    if (typeof window === 'undefined') return null
+    try {
+        const item = localStorage.getItem(`display-cache-${key}`)
+        return item ? JSON.parse(item) : null
+    } catch (e) {
+        console.error('Failed to load from cache', e)
+        return null
+    }
+}

@@ -36,7 +36,7 @@ export default async function DashboardLayout({
         .single()
 
     return (
-        <DashboardShell profile={profile}>
+        <DashboardShell profile={profile as any}>
             {children}
         </DashboardShell>
     )

@@ -28,7 +28,7 @@ export default function TableauVizEmbed({ url, onLoaded }: { url: string, onLoad
         const renderViz = () => {
             if (!container) return
             if (container) {
-                container.innerHTML = ''
+                if(container) container.innerHTML = ''
             }
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const viz: any = document.createElement('tableau-viz')
@@ -85,7 +85,7 @@ export default function TableauVizEmbed({ url, onLoaded }: { url: string, onLoad
             return () => clearInterval(wait)
         }
 
-        return () => { container.innerHTML = '' }
+        return () => { if(container) container.innerHTML = '' }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [url])
 

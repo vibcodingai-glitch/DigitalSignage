@@ -20,6 +20,7 @@ export interface Screen {
 
 export interface Location {
     id: string;
+    organization_id: string;
     name: string;
     address: string | null;
     city: string | null;
@@ -47,12 +48,12 @@ export interface Project {
  * Bypasses RLS Join recursion by using flat fetches and in-memory joins.
  */
 export const DashboardService = {
-    async getScreens(): Promise<{ screens: Screen[], locations: any[], projects: any[] }> {
+    async getScreens(orgId: string): Promise<{ screens: Screen[], locations: any[], projects: any[] }> {
         const supabase = getClient();
         const [{ data: screens }, { data: locations }, { data: projects }] = await Promise.all([
-            supabase.from('screens').select('id, name, status, display_key, location_id, active_project_id, last_heartbeat, orientation, resolution, current_state').order('name'),
-            supabase.from('locations').select('id, name'),
-            supabase.from('projects').select('id, name')
+            supabase.from('screens').select('id, name, status, display_key, location_id, active_project_id, last_heartbeat, orientation, resolution, current_state').eq('organization_id', orgId).order('name'),
+            supabase.from('locations').select('id, name').eq('organization_id', orgId),
+            supabase.from('projects').select('id, name').eq('organization_id', orgId)
         ]);
 
         const locationMap = new Map(locations?.map(l => [l.id, l]))
@@ -70,11 +71,11 @@ export const DashboardService = {
         };
     },
 
-    async getLocations(): Promise<Location[]> {
+    async getLocations(orgId: string): Promise<Location[]> {
         const supabase = getClient();
         const [{ data: locations }, { data: screens }] = await Promise.all([
-            supabase.from('locations').select('*').order('name'),
-            supabase.from('screens').select('id, location_id')
+            supabase.from('locations').select('*').eq('organization_id', orgId).order('name'),
+            supabase.from('screens').select('id, location_id').eq('organization_id', orgId)
         ]);
 
         const screensByLocation = new Map<string, number>()
@@ -87,13 +88,14 @@ export const DashboardService = {
         }));
     },
 
-    async getProjects(): Promise<Project[]> {
+    async getProjects(orgId: string): Promise<Project[]> {
         const supabase = getClient();
         // PERF: Fetch projects first, then strictly filter playlist items by project IDs.
         // Failing to do this forces Postgres to run the RLS policy on EVERY row in the playlist_items table across all tenants.
         const { data: projects } = await supabase
             .from('projects')
             .select('id, name, is_active, screen_id, settings, created_at, organization_id')
+            .eq('organization_id', orgId)
             .order('created_at', { ascending: false });
 
         const projectIds = (projects || []).map(p => p.id);
@@ -105,7 +107,7 @@ export const DashboardService = {
             projectIds.length > 0 
                 ? supabase.from('playlist_items').select('project_id, duration_override').in('project_id', projectIds)
                 : Promise.resolve({ data: [] }),
-            supabase.from('screens').select('id, name'),
+            supabase.from('screens').select('id, name').eq('organization_id', orgId),
         ]);
 
         // Single-pass grouping by project_id
@@ -135,13 +137,13 @@ export const DashboardService = {
         });
     },
 
-    async getStats() {
+    async getStats(orgId: string) {
         const supabase = getClient();
         const [locationsCount, activeProjectsCount, itemsCount, screens] = await Promise.all([
-            supabase.from('locations').select('*', { count: 'exact', head: true }),
-            supabase.from('projects').select('*', { count: 'exact', head: true }).eq('is_active', true),
-            supabase.from('content_items').select('*', { count: 'exact', head: true }),
-            supabase.from('screens').select('status, active_project_id')
+            supabase.from('locations').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
+            supabase.from('projects').select('*', { count: 'exact', head: true }).eq('is_active', true).eq('organization_id', orgId),
+            supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
+            supabase.from('screens').select('status, active_project_id').eq('organization_id', orgId)
         ]);
 
         const screenCounts = (screens.data || []).reduce((acc, s) => {
@@ -160,10 +162,11 @@ export const DashboardService = {
         };
     },
 
-    async getRecentActivity() {
+    async getRecentActivity(orgId: string) {
         const supabase = getClient();
         const { data: activity } = await supabase.from('screen_logs')
-            .select('id, event, created_at, details, screen_id')
+            .select('id, event, created_at, details, screen_id, screens!inner(organization_id)')
+            .eq('screens.organization_id', orgId)
             .order('created_at', { ascending: false })
             .limit(10);
         
@@ -229,11 +232,12 @@ export const DashboardService = {
      * Fetches the content library on-demand (called when user opens content picker).
      * Separated from getProjectDetails to avoid loading 500 items on every page view.
      */
-    async getContentLibrary(limit = 200) {
+    async getContentLibrary(orgId: string, limit = 200) {
         const supabase = getClient();
         const { data } = await supabase
             .from('content_items')
             .select('id, name, type, file_url, source_url, file_path, thumbnail_url, duration_seconds, created_at')
+            .eq('organization_id', orgId)
             .order('created_at', { ascending: false })
             .limit(limit);
         return data || [];
