@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { EmptyState } from "@/components/empty-state"
 import { getDisplayUrl, getAppUrl } from "@/lib/app-url"
+import { getOrgId } from "@/lib/utils/get-org-id"
 
 interface Screen {
     id: string;
@@ -75,8 +76,8 @@ export default function ScreensPage() {
         resolution: "1920x1080"
     })
 
-    // Filters
-    const filteredScreens = screens.filter(screen => {
+    // Filters — memoized to avoid recomputing on unrelated re-renders
+    const filteredScreens = useMemo(() => screens.filter(screen => {
         const matchesSearch = screen.name.toLowerCase().includes(searchQuery.toLowerCase())
         const matchesStatus = statusFilter === 'all' || screen.status === statusFilter
         const matchesLocation = locationFilter === 'all'
@@ -84,20 +85,13 @@ export default function ScreensPage() {
             || screen.location_id === locationFilter
 
         return matchesSearch && matchesStatus && matchesLocation
-    })
+    }), [screens, searchQuery, statusFilter, locationFilter])
 
     const handleCreateScreen = async (e: React.FormEvent) => {
         e.preventDefault()
 
         // Get organization_id from profile, or fetch it directly if profile not yet loaded
-        let orgId = profile?.organization_id
-        if (!orgId) {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const { data } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
-                if (data?.organization_id) orgId = data.organization_id
-            }
-        }
+        const orgId = await getOrgId(profile?.organization_id)
         if (!orgId) {
             toast({ title: "Not ready", description: "Your session is still loading. Please try again.", variant: "destructive" })
             return
@@ -188,9 +182,15 @@ export default function ScreensPage() {
         window.open(`/display/${displayKey}`, '_blank')
     }
 
-    // compute stats for header
-    const onlineCount = screens.filter(s => s.status === 'online').length
-    const offlineCount = screens.filter(s => s.status === 'offline').length
+    // compute stats for header — single pass instead of two filter passes
+    const { onlineCount, offlineCount } = useMemo(() => {
+        let online = 0, offline = 0
+        for (const s of screens) {
+            if (s.status === 'online') online++
+            else if (s.status === 'offline') offline++
+        }
+        return { onlineCount: online, offlineCount: offline }
+    }, [screens])
 
     return (
         <div className="space-y-6">

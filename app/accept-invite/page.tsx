@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { useUser } from "@/hooks/use-user"
+import { useUser, UserProvider } from "@/hooks/use-user"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -92,12 +92,14 @@ function AcceptInviteContent() {
 
 export default function AcceptInvitePage() {
     return (
-        <div className="flex min-h-screen w-full items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
-            <Suspense fallback={
-                <div className="h-8 w-8 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
-            }>
-                <AcceptInviteContent />
-            </Suspense>
-        </div>
+        <UserProvider>
+            <div className="flex min-h-screen w-full items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+                <Suspense fallback={
+                    <div className="h-8 w-8 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
+                }>
+                    <AcceptInviteContent />
+                </Suspense>
+            </div>
+        </UserProvider>
     )
 }

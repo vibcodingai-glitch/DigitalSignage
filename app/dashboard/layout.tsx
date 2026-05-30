@@ -10,21 +10,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { LogoutButton } from "@/components/logout-button"
-import { useUser } from "@/hooks/use-user"
+import { useUser, UserProvider } from "@/hooks/use-user"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { SWRConfig } from "swr"
 
-const navItems = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Locations", href: "/dashboard/locations", icon: MapPin },
-    { name: "Screens", href: "/dashboard/screens", icon: Monitor },
-    { name: "Content Library", href: "/dashboard/content", icon: FolderOpen },
-    { name: "Projects", href: "/dashboard/projects", icon: Layers },
-    { name: "Push Events", href: "/dashboard/push-events", icon: Bell },
-    { name: "Monitoring", href: "/dashboard/monitoring", icon: Activity },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
-    { name: "Team Settings", href: "/dashboard/settings/team", icon: Users },
-]
+// Helper moved outside component to avoid recreation on every render
+const getInitials = (name?: string) => {
+    if (!name) return "U"
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+}
 
 const navGroups = [
     {
@@ -63,14 +56,14 @@ const navGroups = [
     },
 ]
 
+// Derive flat navItems from navGroups — single source of truth
+const navItems = navGroups.flatMap(g => g.items)
+
 function AppSidebar() {
     const pathname = usePathname()
     const { user, profile } = useUser()
 
-    const getInitials = (name?: string) => {
-        if (!name) return "U"
-        return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-    }
+
 
     return (
         <Sidebar className="border-r-0 bg-[#0a0a12] text-slate-50">
@@ -245,12 +238,7 @@ export default function DashboardLayout({
     children: React.ReactNode
 }) {
     return (
-        <SWRConfig value={{
-            revalidateOnFocus: false,
-            revalidateOnReconnect: true,
-            dedupingInterval: 30_000,
-            keepPreviousData: true,
-        }}>
+        <UserProvider>
             <SidebarProvider>
                 <div className="flex min-h-screen w-full bg-slate-50 dark:bg-[#070710]">
                     <AppSidebar />
@@ -262,6 +250,6 @@ export default function DashboardLayout({
                     </main>
                 </div>
             </SidebarProvider>
-        </SWRConfig>
+        </UserProvider>
     )
 }

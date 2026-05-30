@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { useCallback } from "react";
 import { DashboardService } from "@/lib/services/dashboard";
 
 /**
@@ -27,12 +28,15 @@ function useDashboardData<T>(
         keepPreviousData: true,
     });
 
+    // Stable reference — mutate from SWR is stable so this never changes
+    const refresh = useCallback(() => mutate(), [mutate]);
+
     return {
         data: data ?? null,
         // Only show the loading state when there is truly nothing to show.
         isLoading: isLoading && !data,
         error,
-        refresh: () => mutate(),
+        refresh,
     };
 }
 

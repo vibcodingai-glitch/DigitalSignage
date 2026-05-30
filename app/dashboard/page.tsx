@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useMemo, useCallback } from "react"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { formatDistanceToNow } from "date-fns"
 import { useStats, useScreens, useRecentActivity } from "@/hooks/use-dashboard"
@@ -50,15 +49,18 @@ export default function DashboardOverviewPage() {
     const { data: screens, isLoading: screensLoading, refresh: refreshScreens } = useScreens()
     const { data: activity, isLoading: activityLoading, refresh: refreshActivity } = useRecentActivity()
 
-    const fetchDashboardData = () => {
+    const fetchDashboardData = useCallback(() => {
         refreshStats()
         refreshScreens()
         refreshActivity()
-    }
+    }, [refreshStats, refreshScreens, refreshActivity])
 
-    const onlinePct = stats?.screens.total && stats.screens.total > 0
-        ? Math.round((stats.screens.online / stats.screens.total) * 100)
-        : 0
+    const onlinePct = useMemo(() => 
+        stats?.screens.total && stats.screens.total > 0
+            ? Math.round((stats.screens.online / stats.screens.total) * 100)
+            : 0,
+        [stats?.screens.total, stats?.screens.online]
+    )
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">

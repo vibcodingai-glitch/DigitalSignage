@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+'use client'
+
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
 
@@ -12,7 +14,26 @@ interface Profile {
     organizations?: Record<string, unknown> | null;
 }
 
-export function useUser() {
+interface UserContextValue {
+    user: User | null;
+    profile: Profile | null;
+    session: any | null;
+    isLoading: boolean;
+}
+
+const UserContext = createContext<UserContextValue>({
+    user: null,
+    profile: null,
+    session: null,
+    isLoading: true,
+})
+
+/**
+ * Provider that manages auth state in a single place.
+ * Wrap your layout with <UserProvider> so all children share
+ * ONE getSession() call, ONE profile fetch, and ONE onAuthStateChange listener.
+ */
+export function UserProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [profile, setProfile] = useState<Profile | null>(null)
     const [session, setSession] = useState<any | null>(null)
@@ -70,7 +91,22 @@ export function useUser() {
             mounted = false
             authListener?.subscription.unsubscribe()
         }
-    }, [supabase])
+    // supabase is a singleton from createClient(), stable across renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
-    return { user, profile, session, isLoading }
+    return (
+        <UserContext.Provider value={{ user, profile, session, isLoading }}>
+            {children}
+        </UserContext.Provider>
+    )
+}
+
+/**
+ * Hook to access user/profile data from the shared UserProvider context.
+ * All components calling useUser() share the same underlying state —
+ * no duplicate network requests or auth listeners.
+ */
+export function useUser() {
+    return useContext(UserContext)
 }
