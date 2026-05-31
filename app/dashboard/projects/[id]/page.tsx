@@ -471,7 +471,10 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
         webpage: <Globe className="h-4 w-4" />,
         powerbi: <BarChart2 className="h-4 w-4" />,
         dashboard: <BarChart2 className="h-4 w-4" />,
-        html_snippet: <Code className="h-4 w-4" />
+        html_snippet: <Code className="h-4 w-4" />,
+        weather: <Globe className="h-4 w-4" />,
+        rss: <Globe className="h-4 w-4" />,
+        qr: <Globe className="h-4 w-4" />
     }
 
     const typeColors = {
@@ -482,7 +485,10 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
         webpage: "text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20",
         powerbi: "text-amber-500 bg-amber-50 dark:bg-amber-900/20",
         dashboard: "text-amber-500 bg-amber-50 dark:bg-amber-900/20",
-        html_snippet: "text-slate-500 bg-slate-100 dark:bg-slate-800"
+        html_snippet: "text-slate-500 bg-slate-100 dark:bg-slate-800",
+        weather: "text-sky-500 bg-sky-50 dark:bg-sky-900/20",
+        rss: "text-orange-500 bg-orange-50 dark:bg-orange-900/20",
+        qr: "text-slate-500 bg-slate-100 dark:bg-slate-800"
     }
 
     const filteredLibrary = useMemo(() => {

@@ -215,7 +215,7 @@ export const DashboardService = {
         return {
             project,
             screen,
-            playlist: (playlist || []).map(item => ({
+            playlist: (playlist || []).filter(item => item.content_item).map(item => ({
                 ...item,
                 playlist_item_id: item.id,
                 duration_override: item.duration_override || (item.content_item as any)?.duration_seconds || 10,
