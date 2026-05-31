@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -96,7 +96,7 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
     const supabase = createClient()
     const { toast } = useToast()
 
-    const { data: detailData, isLoading, refresh: fetchData } = useProjectDetails(params.id)
+    const { data: detailData, isLoading, error: detailError, refresh: fetchData } = useProjectDetails(params.id)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [project, setProject] = useState<any>(null)
@@ -349,7 +349,13 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
                         order_index: idx,
                         duration_override: p.duration_override,
                         transition_type: p.transition_type,
-                        zone_index: p.zone_index || 0
+                        zone_index: p.zone_index || 0,
+                        valid_from: p.valid_from || null,
+                        valid_until: p.valid_until || null,
+                        day_part_start: p.day_part_start || null,
+                        day_part_end: p.day_part_end || null,
+                        show_qr_code: p.show_qr_code || false,
+                        qr_code_url: p.qr_code_url || null
                     }
                 }).filter(p => p.content_item_id)
 
@@ -491,6 +497,16 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
         const m = Math.floor(seconds / 60)
         const s = seconds % 60
         return m > 0 ? `${m}m ${s}s` : `${s}s`
+    }
+
+    if (detailError) {
+        return (
+            <div className="p-8 flex flex-col items-center justify-center h-[50vh] gap-4">
+                <div className="text-red-500 font-bold text-lg">Error loading project</div>
+                <div className="text-slate-500 font-mono text-sm max-w-lg text-center bg-slate-100 p-4 rounded-lg overflow-auto">{String(detailError)}</div>
+                <Button onClick={() => fetchData()}>Retry</Button>
+            </div>
+        )
     }
 
     if (isLoading || !project) {
@@ -894,8 +910,6 @@ function DraggableLibraryItem({ item, onAdd, icon, colorClass }: { item: any, on
 
 
 // Sortable Middle Timeline Item
-import { DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
-
 function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClass, isSelected, onSelect }: { item: PlaylistItem, index: number, onUpdate: (updates: Partial<PlaylistItem>) => void, onRemove: () => void, icon: React.ReactNode, colorClass: string, isSelected?: boolean, onSelect?: () => void }) {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const {
