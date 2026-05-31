@@ -11,7 +11,7 @@ export const useContent = () => {
         const supabase = createClient();
         return supabase
             .from('content_items')
-            .select('id, name, type, file_url, thumbnail_url, duration_seconds, created_at, organization_id, source_url, file_path, metadata')
+            .select('id, name, type, thumbnail_url, duration_seconds, created_at, organization_id, source_url, file_path, metadata')
             .eq('organization_id', profile!.organization_id)
             .order('created_at', { ascending: false })
             .limit(1000)

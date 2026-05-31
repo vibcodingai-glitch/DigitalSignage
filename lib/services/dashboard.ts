@@ -196,7 +196,7 @@ export const DashboardService = {
         ] = await Promise.all([
             supabase.from('projects').select('*').eq('id', projectId).single(),
             supabase.from('playlist_items')
-                .select('id, content_item_id, order_index, duration_override, transition_type, zone_index, valid_from, valid_until, day_part_start, day_part_end, show_qr_code, qr_code_url, content_item:content_items(id, name, type, file_url, source_url, file_path, thumbnail_url, duration_seconds, metadata)')
+                .select('id, content_item_id, order_index, duration_override, transition_type, zone_index, valid_from, valid_until, day_part_start, day_part_end, show_qr_code, qr_code_url, content_item:content_items(id, name, type, source_url, file_path, thumbnail_url, duration_seconds, metadata)')
                 .eq('project_id', projectId)
                 .order('zone_index', { ascending: true })
                 .order('order_index', { ascending: true }),
@@ -242,7 +242,7 @@ export const DashboardService = {
         const supabase = getClient();
         const { data } = await supabase
             .from('content_items')
-            .select('id, name, type, file_url, source_url, file_path, thumbnail_url, duration_seconds, created_at')
+            .select('id, name, type, source_url, file_path, thumbnail_url, duration_seconds, created_at')
             .eq('organization_id', orgId)
             .order('created_at', { ascending: false })
             .limit(limit);

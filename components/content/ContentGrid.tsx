@@ -25,7 +25,10 @@ const typeIcons: Record<ContentItem['type'], React.ReactNode> = {
     powerbi: <BarChart2 className="h-5 w-5" />,
     powerbi_frame: <BarChart2 className="h-5 w-5" />,
     dashboard: <BarChart2 className="h-5 w-5" />,
-    html_snippet: <Code className="h-5 w-5" />
+    html_snippet: <Code className="h-5 w-5" />,
+    weather: <Globe className="h-5 w-5" />,
+    rss: <Globe className="h-5 w-5" />,
+    qr: <Globe className="h-5 w-5" />
 }
 
 const typeColors: Record<ContentItem['type'], string> = {
@@ -37,7 +40,10 @@ const typeColors: Record<ContentItem['type'], string> = {
     powerbi: "text-amber-500 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-900/50",
     powerbi_frame: "text-yellow-600 bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-900/50",
     dashboard: "text-amber-500 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-900/50",
-    html_snippet: "text-slate-500 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700"
+    html_snippet: "text-slate-500 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700",
+    weather: "text-sky-500 bg-sky-50 border-sky-200 dark:bg-sky-900/20 dark:border-sky-900/50",
+    rss: "text-orange-500 bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-900/50",
+    qr: "text-slate-500 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700"
 }
 
 export { typeIcons, typeColors }
