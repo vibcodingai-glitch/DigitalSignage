@@ -215,7 +215,7 @@ export const DashboardService = {
         return {
             project,
             screen,
-            playlist: (playlist || []).filter(item => item.content_item).map(item => ({
+            playlist: (playlist || []).map(item => ({
                 ...item,
                 playlist_item_id: item.id,
                 duration_override: item.duration_override || (item.content_item as any)?.duration_seconds || 10,
@@ -228,7 +228,7 @@ export const DashboardService = {
                 day_part_end: item.day_part_end,
                 show_qr_code: item.show_qr_code,
                 qr_code_url: item.qr_code_url
-            })),
+            })).filter(item => item.content_item),
             schedules: schedules || [],
             library: []  // Loaded on-demand via getContentLibrary()
         };

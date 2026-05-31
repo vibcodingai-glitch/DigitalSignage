@@ -509,7 +509,9 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
         return (
             <div className="p-8 flex flex-col items-center justify-center h-[50vh] gap-4">
                 <div className="text-red-500 font-bold text-lg">Error loading project</div>
-                <div className="text-slate-500 font-mono text-sm max-w-lg text-center bg-slate-100 p-4 rounded-lg overflow-auto">{String(detailError)}</div>
+                <div className="text-slate-500 font-mono text-sm max-w-lg text-left bg-slate-100 dark:bg-slate-900 p-4 rounded-lg overflow-auto w-full">
+                    <pre>{JSON.stringify(detailError, null, 2)}</pre>
+                </div>
                 <Button onClick={() => fetchData()}>Retry</Button>
             </div>
         )
