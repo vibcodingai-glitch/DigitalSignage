@@ -207,7 +207,7 @@ export async function getServerContentData(organizationId: string) {
     const supabase = getClient()
     const { data } = await supabase
         .from('content_items')
-        .select('id, name, type, file_url, thumbnail_url, duration_seconds, created_at, organization_id')
+        .select('id, name, type, thumbnail_url, duration_seconds, created_at, organization_id, source_url, file_path, metadata')
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
         .limit(200)

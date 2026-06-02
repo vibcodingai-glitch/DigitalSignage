@@ -89,10 +89,10 @@ export default function ScreenDetailPage({ params }: { params: { id: string } })
     const fetchScreenData = useCallback(async () => {
         setIsLoading(true)
         try {
-            // Screen info — simple query without ambiguous FK hint
+            // Step 1: Fetch screen — we need org_id and location_id for the rest
             const { data: screenData, error: screenError } = await supabase
                 .from('screens')
-                .select('*, location:locations(id, name)')
+                .select('*, location:locations(id, name, timezone)')
                 .eq('id', params.id)
                 .single()
 
@@ -106,12 +106,14 @@ export default function ScreenDetailPage({ params }: { params: { id: string } })
                 resolution: screenData.resolution || "1920x1080"
             })
             setActiveProjectSelection(screenData.active_project_id || "none")
-            // Pre-populate "Currently Playing" from DB on first load
             if (screenData.current_state) setLiveCurrentState(screenData.current_state)
 
-            // Reference lookups — run in parallel
+            // Extract timezone from the joined location (no extra query needed)
+            if (screenData.location?.timezone) setLocationTz(screenData.location.timezone)
+
+            // Step 2: Fire ALL remaining queries in a single parallel batch
             const [{ data: locs }, { data: projs }, { data: lg }, { data: pe }] = await Promise.all([
-                supabase.from('locations').select('id, name').order('name'),
+                supabase.from('locations').select('id, name').eq('organization_id', screenData.organization_id).order('name'),
                 supabase.from('projects').select('*').eq('organization_id', screenData.organization_id).order('created_at', { ascending: false }),
                 supabase.from('screen_logs').select('*').eq('screen_id', params.id).order('created_at', { ascending: false }).limit(20),
                 supabase.from('push_events').select('*, created_by:profiles(full_name)').eq('screen_id', params.id).order('created_at', { ascending: false }).limit(10)
@@ -123,6 +125,7 @@ export default function ScreenDetailPage({ params }: { params: { id: string } })
 
             if (projs) {
                 setProjects(projs)
+                // Fetch schedules in parallel — don't wait for the projects setState
                 if (projs.length > 0) {
                     const { data: scheds } = await supabase
                         .from('schedules')
@@ -138,12 +141,6 @@ export default function ScreenDetailPage({ params }: { params: { id: string } })
                         setAllSchedules(enriched)
                     }
                 }
-            }
-
-            // Location timezone
-            if (screenData?.location_id) {
-                const { data: locData } = await supabase.from('locations').select('timezone').eq('id', screenData.location_id).single()
-                if (locData?.timezone) setLocationTz(locData.timezone)
             }
 
         } catch (error) {
