@@ -173,23 +173,30 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
         } else if (eventType === 'custom') {
             setJsonPayloadStr("{}")
         }
-    }, [eventType, contentItems])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [eventType])
 
-    // Realtime subscription for new events
+    // Realtime subscription for new events (debounced to handle broadcast bursts)
     useEffect(() => {
         if (!screens.length) return
+        let debounceTimer: NodeJS.Timeout | null = null
         const channel = supabase
             .channel("push-events-feed")
             .on("postgres_changes", {
                 event: "INSERT",
                 schema: "public",
                 table: "push_events"
-            }, (payload) => {
-                fetchData() // Refresh cleanly to get relations
+            }, () => {
+                // Debounce: broadcasts create 10+ inserts in rapid succession
+                if (debounceTimer) clearTimeout(debounceTimer)
+                debounceTimer = setTimeout(() => fetchData(), 2000)
             })
             .subscribe()
 
-        return () => { supabase.removeChannel(channel) }
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer)
+            supabase.removeChannel(channel)
+        }
     }, [screens, supabase])
 
     const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -230,42 +237,35 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
     }
 
     const executeSend = async () => {
-        let orgId = profile?.organization_id
-        if (!orgId) {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const { data } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
-                if (data?.organization_id) orgId = data.organization_id
-            }
-        }
-        if (!orgId) {
-            toast({ title: "Session not ready", description: "Please try again.", variant: "destructive" })
-            return
-        }
-
-        let finalPayload = { ...payload }
-        if (eventType === "custom") {
-            try {
-                finalPayload = JSON.parse(jsonPayloadStr)
-            } catch {
-                toast({ title: "Invalid JSON payload", description: "Please fix the JSON syntax", variant: "destructive" })
-                setIsConfirmOpen(false)
-                return
-            }
-        } else if (eventType === "override_content") {
-            // Display engine expects the full content_item object, not just the ID
-            const item = contentItems.find(i => i.id === finalPayload.content_item_id)
-            if (item) {
-                finalPayload.content_item = item
-            }
-        }
-
-        const expiresAt = expiryMinutes !== "0"
-            ? new Date(Date.now() + parseInt(expiryMinutes) * 60 * 1000).toISOString()
-            : undefined
-
         setIsSending(true)
         try {
+            let orgId = profile?.organization_id
+            if (!orgId) {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    const { data } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+                    if (data?.organization_id) orgId = data.organization_id
+                }
+            }
+            if (!orgId) {
+                toast({ title: "Session not ready", description: "Please try again.", variant: "destructive" })
+                return
+            }
+
+            let finalPayload = { ...payload }
+            if (eventType === "custom") {
+                finalPayload = JSON.parse(jsonPayloadStr)
+            } else if (eventType === "override_content") {
+                const item = contentItems.find(i => i.id === finalPayload.content_item_id)
+                if (item) {
+                    finalPayload.content_item = item
+                }
+            }
+
+            const expiresAt = expiryMinutes !== "0"
+                ? new Date(Date.now() + parseInt(expiryMinutes) * 60 * 1000).toISOString()
+                : undefined
+
             if (targetType === "all") {
                 const res = await broadcastPushEvent({
                     eventType,
@@ -301,6 +301,7 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
             setIsConfirmOpen(false)
             fetchData()
         } catch (err) {
+            console.error('[PushEvents] Send error:', err)
             toast({ title: "Failed to send push event", description: (err as Error).message, variant: "destructive" })
         } finally {
             setIsSending(false)
