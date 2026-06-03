@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
-import { useProjectDetails } from "@/hooks/use-dashboard"
+import { useProjectDetails, useContentLibrary } from "@/hooks/use-dashboard"
 import {
     DndContext,
     closestCenter,
@@ -97,6 +97,7 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
     const { toast } = useToast()
 
     const { data: detailData, isLoading, error: detailError, refresh: fetchData } = useProjectDetails(params.id)
+    const { data: libraryData } = useContentLibrary()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [project, setProject] = useState<any>(null)
@@ -137,10 +138,15 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
             setScreen(detailData.screen)
             setPlaylist(detailData.playlist)
             setSchedules(detailData.schedules)
-            setLibraryItems(detailData.library)
             setSettings(detailData.project.settings || { loop: true, transition_type: "fade", default_duration: 10 })
         }
     }, [detailData])
+
+    useEffect(() => {
+        if (libraryData) {
+            setLibraryItems(libraryData)
+        }
+    }, [libraryData])
 
     const currentLayoutType = project?.layout_type || 'fullscreen';
     const activeZones = ZONE_CONFIG[currentLayoutType] || ZONE_CONFIG.fullscreen;

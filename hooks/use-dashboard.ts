@@ -112,3 +112,13 @@ export const useProjectDetails = (projectId: string) =>
         () => DashboardService.getProjectDetails(projectId),
         { dedupingInterval: 10_000 }
     );
+
+/** Content library — loaded on demand for editors/pickers. */
+export const useContentLibrary = () => {
+    const { profile } = useUser();
+    return useDashboardData(
+        profile?.organization_id ? `dashboard-content-${profile.organization_id}` : null,
+        () => DashboardService.getContentLibrary(profile!.organization_id),
+        { dedupingInterval: 60_000 }
+    );
+};
