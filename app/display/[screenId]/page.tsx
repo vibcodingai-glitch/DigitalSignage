@@ -446,6 +446,23 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
                     </div>
                     <p className="text-slate-600 text-xs font-mono uppercase tracking-widest">Initializing Display Node...</p>
                 </div>
+
+                {/* Push overlay — must render even during boot */}
+                {pushOverlay?.type === 'alert' && (
+                    <div className="absolute inset-x-0 top-0 z-50 flex items-start justify-center p-6 animate-in slide-in-from-top-4 duration-500">
+                        <div className="bg-amber-500 text-black font-bold text-lg px-8 py-4 rounded-xl shadow-2xl max-w-2xl text-center">
+                            {pushOverlay.message}
+                        </div>
+                    </div>
+                )}
+                {pushOverlay?.type === 'override' && pushOverlay.content_item && (
+                    <div className="absolute inset-0 z-[60] bg-black animate-in fade-in duration-500">
+                        <ContentRenderer 
+                            item={{ id: 'push', content_item: pushOverlay.content_item, project_id: '', order_index: 0, zone_index: 0 } as any}
+                            defaultTransition="none" isMuted={isMuted} onEnded={() => {}} onError={() => {}} 
+                        />
+                    </div>
+                )}
             </div>
         )
     }
@@ -495,6 +512,30 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
                     <p>{new Date().toLocaleDateString()} · SignageHub</p>
                     <p>Node: {screen?.display_key?.slice(0, 8)}</p>
                 </div>
+
+                {/* Push overlay — must render even with no project */}
+                {pushOverlay?.type === 'alert' && (
+                    <div className="absolute inset-x-0 top-0 z-50 flex items-start justify-center p-6 animate-in slide-in-from-top-4 duration-500">
+                        <div className="bg-amber-500 text-black font-bold text-lg px-8 py-4 rounded-xl shadow-2xl max-w-2xl text-center">
+                            {pushOverlay.message}
+                        </div>
+                    </div>
+                )}
+                {pushOverlay?.type === 'override' && pushOverlay.content_item && (
+                    <div className="absolute inset-0 z-[60] bg-black animate-in fade-in duration-500">
+                        <ContentRenderer 
+                            item={{ id: 'push', content_item: pushOverlay.content_item, project_id: '', order_index: 0, zone_index: 0 } as any}
+                            defaultTransition="none" isMuted={isMuted} onEnded={() => {}} onError={() => {}} 
+                        />
+                    </div>
+                )}
+                {pushOverlay?.type === 'sound' && (
+                    <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-50 animate-in fade-in duration-500">
+                        <div className="bg-black/70 backdrop-blur-md border border-white/10 text-white/60 text-xs font-mono px-4 py-2 rounded-full flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" /> Audio Push Received
+                        </div>
+                    </div>
+                )}
 
                 {/* Connection dot */}
                 <ConnectionDot status={connStatus} isOffline={isOffline} />
