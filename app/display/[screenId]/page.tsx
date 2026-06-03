@@ -8,6 +8,7 @@ import { usePowerBIRelay } from "@/hooks/use-powerbi-relay"
 
 import { Screen, Project, PlaylistItem, PushOverlay, ConnectionStatus } from "@/types/display"
 import { ZoneRenderer, TickerZoneRenderer } from "@/components/display/ZoneRenderer"
+import ContentRenderer from "@/components/display/ContentRenderer"
 import { getProxiedUrl, loadFromCache, saveToCache } from "@/lib/display-utils"
 
 // ==============================================================
