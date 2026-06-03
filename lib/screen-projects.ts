@@ -4,7 +4,7 @@
  * Follows the same direct Supabase client pattern used throughout the codebase.
  */
 
-import { createClient } from '@/lib/supabase/client'
+
 
 // ─────────────────────────────────────────────────────────────────
 // TYPES
@@ -87,81 +87,29 @@ export interface ResolvedProject {
  * Ordered by priority DESC, sort_order ASC.
  */
 export async function getScreenProjects(screenId: string): Promise<ScreenProject[]> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from('screen_projects')
-    .select(`
-      *,
-      project:projects(
-        id,
-        name,
-        settings,
-        is_active,
-        created_at
-      )
-    `)
-    .eq('screen_id', screenId)
-    .order('priority', { ascending: false })
-    .order('sort_order', { ascending: true })
-
-  if (error) throw error
-
-  // Fetch playlist item counts per project
-  if (data && data.length > 0) {
-    const projectIds = data.map((sp) => sp.project_id)
-    const { data: counts } = await supabase
-      .from('playlist_items')
-      .select('project_id')
-      .in('project_id', projectIds)
-
-    const countMap: Record<string, number> = {}
-    if (counts) {
-      for (const item of counts) {
-        countMap[item.project_id] = (countMap[item.project_id] || 0) + 1
-      }
-    }
-
-    return (data as ScreenProject[]).map((sp) => ({
-      ...sp,
-      project: sp.project
-        ? { ...sp.project, _playlist_count: countMap[sp.project_id] || 0 }
-        : undefined,
-    }))
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
+  try {
+    const res = await fetch(`/api/dashboard?action=screen-projects&id=${screenId}`, { signal: controller.signal })
+    if (!res.ok) throw new Error('Failed to fetch screen projects')
+    return res.json()
+  } finally {
+    clearTimeout(timeout)
   }
-
-  return (data || []) as ScreenProject[]
 }
 
 /**
  * Assign a project to a screen with schedule settings.
  */
 export async function assignProjectToScreen(input: AssignProjectInput): Promise<ScreenProject> {
-  const supabase = createClient()
-
-  const payload = {
-    screen_id: input.screen_id,
-    project_id: input.project_id,
-    organization_id: input.organization_id,
-    schedule_type: input.schedule_type,
-    days_of_week: input.days_of_week ?? [0, 1, 2, 3, 4, 5, 6],
-    start_time: input.start_time ?? '00:00',
-    end_time: input.end_time ?? '23:59',
-    start_date: input.start_date ?? null,
-    end_date: input.end_date ?? null,
-    priority: input.priority ?? 0,
-    sort_order: input.sort_order ?? 0,
-    is_active: true,
-  }
-
-  const { data, error } = await supabase
-    .from('screen_projects')
-    .insert(payload)
-    .select()
-    .single()
-
-  if (error) throw error
-  return data as ScreenProject
+  const res = await fetch('/api/dashboard/mutate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'screen-projects-assign', input })
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Failed to assign project')
+  return json.data as ScreenProject
 }
 
 /**
@@ -171,31 +119,26 @@ export async function updateScreenProject(
   id: string,
   updates: Partial<Omit<ScreenProject, 'id' | 'screen_id' | 'project_id' | 'organization_id' | 'created_at' | 'updated_at' | 'project'>>
 ): Promise<ScreenProject> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from('screen_projects')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) throw error
-  return data as ScreenProject
+  const res = await fetch('/api/dashboard/mutate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'screen-projects-update', id, updates })
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Failed to update project schedule')
+  return json.data as ScreenProject
 }
 
 /**
  * Remove a project assignment from a screen (does NOT delete the project).
  */
 export async function removeScreenProject(id: string): Promise<void> {
-  const supabase = createClient()
-
-  const { error } = await supabase
-    .from('screen_projects')
-    .delete()
-    .eq('id', id)
-
-  if (error) throw error
+  const res = await fetch('/api/dashboard/mutate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'screen-projects-remove', id })
+  })
+  if (!res.ok) throw new Error('Failed to remove project assignment')
 }
 
 /**
@@ -204,18 +147,12 @@ export async function removeScreenProject(id: string): Promise<void> {
 export async function reorderScreenProjects(
   items: Array<{ id: string; sort_order: number }>
 ): Promise<void> {
-  const supabase = createClient()
-
-  // Batch upsert — Supabase doesn't have a true bulk update API,
-  // so we use upsert on the PK which preserves all other fields.
-  const updates = items.map(({ id, sort_order }) => ({ id, sort_order }))
-
-  // Use Promise.all for parallel updates
-  await Promise.all(
-    updates.map(({ id, sort_order }) =>
-      supabase.from('screen_projects').update({ sort_order }).eq('id', id)
-    )
-  )
+  const res = await fetch('/api/dashboard/mutate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'screen-projects-reorder', items })
+  })
+  if (!res.ok) throw new Error('Failed to reorder projects')
 }
 
 /**

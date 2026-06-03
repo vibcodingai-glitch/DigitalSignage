@@ -148,6 +148,52 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true })
       }
 
+      // ── SCREEN PROJECTS MUTATIONS ────────────────────────
+      case 'screen-projects-assign': {
+        const { input } = body
+        const payload = {
+          screen_id: input.screen_id,
+          project_id: input.project_id,
+          organization_id: input.organization_id,
+          schedule_type: input.schedule_type,
+          days_of_week: input.days_of_week ?? [0, 1, 2, 3, 4, 5, 6],
+          start_time: input.start_time ?? '00:00',
+          end_time: input.end_time ?? '23:59',
+          start_date: input.start_date ?? null,
+          end_date: input.end_date ?? null,
+          priority: input.priority ?? 0,
+          sort_order: input.sort_order ?? 0,
+          is_active: true,
+        }
+        const { data, error } = await sb.from('screen_projects').insert(payload).select().single()
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ data })
+      }
+
+      case 'screen-projects-update': {
+        const { id, updates } = body
+        const { data, error } = await sb.from('screen_projects').update(updates).eq('id', id).select().single()
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ data })
+      }
+
+      case 'screen-projects-remove': {
+        const { id } = body
+        const { error } = await sb.from('screen_projects').delete().eq('id', id)
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ success: true })
+      }
+
+      case 'screen-projects-reorder': {
+        const { items } = body
+        await Promise.all(
+          items.map(({ id, sort_order }: any) =>
+            sb.from('screen_projects').update({ sort_order }).eq('id', id)
+          )
+        )
+        return NextResponse.json({ success: true })
+      }
+
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
     }

@@ -103,59 +103,29 @@ export default function ScreenDetailClient({ params, initialData }: ScreenDetail
     const fetchScreenData = useCallback(async () => {
         setIsLoading(true)
         try {
-            // Step 1: Fetch screen — we need org_id and location_id for the rest
-            const { data: screenData, error: screenError } = await supabase
-                .from('screens')
-                .select('*, location:locations(id, name, timezone)')
-                .eq('id', params.id)
-                .single()
+            const res = await fetch(`/api/dashboard?action=screen-details&id=${params.id}`)
+            const data = await res.json()
 
-            if (screenError) throw screenError
+            if (!res.ok) throw new Error(data.error || 'Failed to fetch screen details')
+
+            const { screen: screenData, locations: locs, projects: projs, logs: lg, pushEvents: pe, schedules: scheds, locationTz } = data
 
             setScreen(screenData)
-            setEditNameValue(screenData.name)
+            setEditNameValue(screenData?.name || '')
             setSettingsData({
-                location_id: screenData.location_id || "none",
-                orientation: screenData.orientation || "landscape",
-                resolution: screenData.resolution || "1920x1080"
+                location_id: screenData?.location_id || "none",
+                orientation: screenData?.orientation || "landscape",
+                resolution: screenData?.resolution || "1920x1080"
             })
-            setActiveProjectSelection(screenData.active_project_id || "none")
-            if (screenData.current_state) setLiveCurrentState(screenData.current_state)
+            setActiveProjectSelection(screenData?.active_project_id || "none")
+            if (screenData?.current_state) setLiveCurrentState(screenData.current_state)
 
-            // Extract timezone from the joined location (no extra query needed)
-            if (screenData.location?.timezone) setLocationTz(screenData.location.timezone)
-
-            // Step 2: Fire ALL remaining queries in a single parallel batch
-            const [{ data: locs }, { data: projs }, { data: lg }, { data: pe }] = await Promise.all([
-                supabase.from('locations').select('id, name').eq('organization_id', screenData.organization_id).order('name'),
-                supabase.from('projects').select('*').eq('organization_id', screenData.organization_id).order('created_at', { ascending: false }),
-                supabase.from('screen_logs').select('*').eq('screen_id', params.id).order('created_at', { ascending: false }).limit(20),
-                supabase.from('push_events').select('*, created_by:profiles(full_name)').eq('screen_id', params.id).order('created_at', { ascending: false }).limit(10)
-            ])
-
+            if (locationTz) setLocationTz(locationTz)
             if (locs) setLocations(locs)
             if (lg) setLogs(lg)
             if (pe) setPushEvents(pe)
-
-            if (projs) {
-                setProjects(projs)
-                // Fetch schedules in parallel — don't wait for the projects setState
-                if (projs.length > 0) {
-                    const { data: scheds } = await supabase
-                        .from('schedules')
-                        .select('*')
-                        .in('project_id', projs.map(p => p.id))
-                        .eq('is_active', true)
-                    if (scheds) {
-                        const enriched = scheds.map((s, idx) => ({
-                            ...s,
-                            project_name: projs.find(p => p.id === s.project_id)?.name || 'Unknown',
-                            project_color: idx % 8
-                        }))
-                        setAllSchedules(enriched)
-                    }
-                }
-            }
+            if (projs) setProjects(projs)
+            if (scheds) setAllSchedules(scheds)
 
         } catch (error) {
             toast({

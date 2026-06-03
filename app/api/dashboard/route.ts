@@ -212,6 +212,102 @@ export async function GET(request: Request) {
         return NextResponse.json(data || [])
       }
 
+      // ── SCREEN PROJECTS (Assigned Projects) ────────────────
+      case 'screen-projects': {
+        const screenId = searchParams.get('id')
+        if (!screenId) return NextResponse.json({ error: 'Missing screen id' }, { status: 400 })
+
+        const { data, error } = await sb
+          .from('screen_projects')
+          .select(`
+            *,
+            project:projects(
+              id,
+              name,
+              settings,
+              is_active,
+              created_at
+            )
+          `)
+          .eq('screen_id', screenId)
+          .order('priority', { ascending: false })
+          .order('sort_order', { ascending: true })
+
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+        if (data && data.length > 0) {
+          const projectIds = data.map((sp: any) => sp.project_id)
+          const { data: counts } = await sb
+            .from('playlist_items')
+            .select('project_id')
+            .in('project_id', projectIds)
+
+          const countMap: Record<string, number> = {}
+          if (counts) {
+            for (const item of counts) {
+              countMap[item.project_id] = (countMap[item.project_id] || 0) + 1
+            }
+          }
+
+          return NextResponse.json(data.map((sp: any) => ({
+            ...sp,
+            project: sp.project
+              ? { ...sp.project, _playlist_count: countMap[sp.project_id] || 0 }
+              : undefined,
+          })))
+        }
+
+        return NextResponse.json(data || [])
+      }
+
+      // ── SCREEN DETAILS PAGE DATA ─────────────────────────
+      case 'screen-details': {
+        const screenId = searchParams.get('id')
+        if (!screenId) return NextResponse.json({ error: 'Missing screen id' }, { status: 400 })
+
+        const { data: screenData, error: screenError } = await sb
+          .from('screens')
+          .select('*, location:locations(id, name, timezone)')
+          .eq('id', screenId)
+          .single()
+
+        if (screenError) return NextResponse.json({ error: screenError.message }, { status: 500 })
+
+        const [{ data: locs }, { data: projs }, { data: lg }, { data: pe }] = await Promise.all([
+          sb.from('locations').select('id, name').eq('organization_id', orgId).order('name'),
+          sb.from('projects').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }),
+          sb.from('screen_logs').select('*').eq('screen_id', screenId).order('created_at', { ascending: false }).limit(20),
+          sb.from('push_events').select('*, created_by:profiles(full_name)').eq('screen_id', screenId).order('created_at', { ascending: false }).limit(10)
+        ])
+
+        let schedules = []
+        if (projs && projs.length > 0) {
+          const { data: scheds } = await sb
+            .from('schedules')
+            .select('*')
+            .in('project_id', projs.map((p: any) => p.id))
+            .eq('is_active', true)
+          
+          if (scheds) {
+            schedules = scheds.map((s: any, idx: number) => ({
+              ...s,
+              project_name: projs.find((p: any) => p.id === s.project_id)?.name || 'Unknown',
+              project_color: idx % 8
+            }))
+          }
+        }
+
+        return NextResponse.json({
+          screen: screenData,
+          locations: locs || [],
+          projects: projs || [],
+          logs: lg || [],
+          pushEvents: pe || [],
+          schedules,
+          locationTz: screenData.location?.timezone || 'UTC'
+        })
+      }
+
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
     }
