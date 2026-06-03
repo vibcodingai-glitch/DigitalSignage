@@ -333,26 +333,16 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
     const handleSaveChanges = async () => {
         setIsSaving(true)
         try {
-            console.log('[Editor] Saving playlist with', playlist.length, 'items')
-            
-            // 1. Save Settings
-            await supabase.from('projects').update({ settings }).eq('id', project.id)
-
-            // 2. Delete all and re-insert for simplicity
-            // Use a small delay after delete to ensure DB consistency before insert
-            const { error: delError } = await supabase.from('playlist_items').delete().eq('project_id', project.id)
-            if (delError) throw delError
-
-            if (playlist.length > 0) {
-                // Ensure all items have a valid content_item_id
-                const insertPayload = playlist.map((p, idx) => {
-                    if (!p.content_item_id) {
-                        console.error('[Editor] Found item without content_item_id:', p)
-                    }
-                    return {
-                        project_id: project.id,
+            // 1-2-3. Save via server API (settings + delete old + insert new)
+            const saveRes = await fetch('/api/dashboard/mutate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'save-playlist',
+                    project_id: project.id,
+                    settings,
+                    items: playlist.map(p => ({
                         content_item_id: p.content_item_id,
-                        order_index: idx,
                         duration_override: p.duration_override,
                         transition_type: p.transition_type,
                         zone_index: p.zone_index || 0,
@@ -362,12 +352,12 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
                         day_part_end: p.day_part_end || null,
                         show_qr_code: p.show_qr_code || false,
                         qr_code_url: p.qr_code_url || null
-                    }
-                }).filter(p => p.content_item_id)
-
-                console.log('[Editor] Inserting payload:', insertPayload)
-                const { error: insertError } = await supabase.from('playlist_items').insert(insertPayload)
-                if (insertError) throw insertError
+                    }))
+                })
+            })
+            if (!saveRes.ok) {
+                const err = await saveRes.json()
+                throw new Error(err.error || 'Failed to save')
             }
 
             setUnsavedChanges(false)
@@ -426,12 +416,13 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
             if (!confirmed) return
         }
 
-        const { error } = await supabase
-            .from('projects')
-            .update({ layout_type: newLayout })
-            .eq('id', project.id)
+        const res = await fetch('/api/dashboard/mutate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update-layout', project_id: project.id, layout_type: newLayout })
+        })
 
-        if (error) {
+        if (!res.ok) {
             toast({ title: 'Failed to update layout', variant: 'destructive' })
             return
         }
@@ -446,12 +437,19 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
         try {
             const isActive = project.is_active
 
-            // Toggle local boolean flag
-            await supabase.from('projects').update({ is_active: !isActive }).eq('id', project.id)
+            const res = await fetch('/api/dashboard/mutate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'toggle-project',
+                    project_id: project.id,
+                    is_active: !isActive,
+                    screen_id: !isActive ? screen.id : null
+                })
+            })
+            if (!res.ok) throw new Error('Failed to toggle')
 
-            // If turning on, bind to screen
             if (!isActive && screen) {
-                await supabase.from('screens').update({ active_project_id: project.id }).eq('id', screen.id)
                 setScreen({ ...screen, active_project_id: project.id })
             }
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+
 import { useUser } from "@/hooks/use-user"
 import { format } from "date-fns"
 import { useProjects, useScreens } from "@/hooks/use-dashboard"
@@ -25,7 +25,7 @@ import { SWRConfig } from "swr"
 
 function ProjectsContent() {
     const { profile } = useUser()
-    const supabase = createClient()
+
     const { toast } = useToast()
     const router = useRouter()
 
@@ -52,64 +52,23 @@ function ProjectsContent() {
         e.preventDefault()
         if (!newProject.name) return
 
-        // profile loads async after session — fetch org_id directly to avoid race condition
-        let orgId = profile?.organization_id
-        if (!orgId) {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const { data: profileData } = await supabase
-                    .from('profiles')
-                    .select('organization_id')
-                    .eq('id', user.id)
-                    .single()
-                orgId = profileData?.organization_id
-            }
-        }
-        if (!orgId) {
-            toast({ title: "Session not ready", description: "Please try again.", variant: "destructive" })
-            return
-        }
-
         setIsCreating(true)
         try {
-            // 1. Create project
-            const { data: projectRecord, error: projectError } = await supabase.from('projects').insert({
-                organization_id: orgId,
-                name: newProject.name,
-                screen_id: newProject.screen_id === "unassigned" ? null : newProject.screen_id,
-                is_active: false,
-                settings: { "transition_type": "fade", "default_duration": 10, "loop": true }
-            }).select().single()
-
-            if (projectError) throw projectError
-
-            // 2. Clone playlist items if specified
-            if (newProject.copy_from_id !== "none") {
-                const { data: sourceItems, error: itemsError } = await supabase
-                    .from('playlist_items')
-                    .select('*')
-                    .eq('project_id', newProject.copy_from_id)
-
-                if (itemsError) throw itemsError
-
-                if (sourceItems && sourceItems.length > 0) {
-                    const clonedItems = sourceItems.map(item => ({
-                        project_id: projectRecord.id,
-                        content_item_id: item.content_item_id,
-                        order_index: item.order_index,
-                        duration_override: item.duration_override,
-                        transition_type: item.transition_type,
-                        settings: item.settings
-                    }))
-
-                    const { error: cloneError } = await supabase.from('playlist_items').insert(clonedItems)
-                    if (cloneError) throw cloneError
-                }
-            }
+            const res = await fetch('/api/dashboard/mutate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'create-project',
+                    name: newProject.name,
+                    screen_id: newProject.screen_id,
+                    copy_from_id: newProject.copy_from_id
+                })
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to create project')
 
             toast({ title: "Project mapped successfully! Redirecting setup..." })
-            router.push(`/dashboard/projects/${projectRecord.id}`)
-
+            router.push(`/dashboard/projects/${data.project.id}`)
         } catch (error) {
             toast({ title: "Failed to create project", variant: "destructive", description: (error as Error).message })
             setIsCreating(false)
@@ -118,8 +77,12 @@ function ProjectsContent() {
 
     const deleteProject = async (id: string) => {
         try {
-            const { error } = await supabase.from('projects').delete().eq('id', id)
-            if (error) throw error
+            const res = await fetch('/api/dashboard/mutate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete-project', id })
+            })
+            if (!res.ok) throw new Error('Failed to delete')
             toast({ title: "Project sequence wiped" })
             fetchProjects()
         } catch {
