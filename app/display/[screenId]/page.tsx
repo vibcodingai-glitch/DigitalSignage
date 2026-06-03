@@ -639,15 +639,21 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
 
             {/* PUSH EVENT — Override Content */}
             {pushOverlay?.type === 'override' && pushOverlay.content_item && (
-                <div className="absolute inset-0 z-40 bg-black animate-in fade-in duration-500">
-                    {/* Reuse a minimal renderer for the override item */}
-                    {pushOverlay.content_item.type === 'image' && (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={pushOverlay.content_item.source_url || ''} alt="" className="w-full h-full object-cover" />
-                    )}
-                    {(pushOverlay.content_item.type === 'url' || pushOverlay.content_item.type === 'webpage') && (
-                        <iframe src={getProxiedUrl(pushOverlay.content_item.source_url || '', process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : ''))} className="w-full h-full border-none" />
-                    )}
+                <div className="absolute inset-0 z-[60] bg-black animate-in fade-in duration-500">
+                    <ContentRenderer 
+                        item={{ 
+                            id: 'push', 
+                            content_item: pushOverlay.content_item,
+                            project_id: '',
+                            order_index: 0,
+                            zone_index: 0
+                        } as any} 
+                        project={project || { id: 'push' } as any} 
+                        defaultTransition="none"
+                        isMuted={isMuted} 
+                        onEnded={() => {}} 
+                        onError={() => {}} 
+                    />
                 </div>
             )}
 
