@@ -403,6 +403,77 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
         }
     }, [screen, project, params.screenId, loadSequence, supabase])
 
+    // ==============================================================
+    // PUSH EVENT POLLING (reliable fallback for broken Realtime)
+    // ==============================================================
+    const processedPushIdsRef = useRef<Set<string>>(new Set())
+    
+    const processPushEvent = useCallback((ev: any) => {
+        if (processedPushIdsRef.current.has(ev.id)) return
+        processedPushIdsRef.current.add(ev.id)
+        
+        // Keep set from growing forever
+        if (processedPushIdsRef.current.size > 100) {
+            const arr = Array.from(processedPushIdsRef.current)
+            processedPushIdsRef.current = new Set(arr.slice(-50))
+        }
+
+        // Ignore expired events
+        if (ev.expires_at && new Date(ev.expires_at) < new Date()) return
+
+        const pld = ev.payload || {}
+        console.log('[Display] Processing push event:', ev.event_type, ev.id)
+
+        switch (ev.event_type) {
+            case 'reload': window.location.reload(); break
+            case 'show_alert':
+                setPushOverlay({ type: 'alert', message: pld.message || 'Alert from admin', duration: pld.duration || 8 })
+                setTimeout(() => setPushOverlay(null), (pld.duration || 8) * 1000)
+                break
+            case 'play_sound':
+                setPushOverlay({ type: 'sound' })
+                if (pld.url) {
+                    const audio = new Audio(pld.url)
+                    audio.play().catch(() => { })
+                    audio.onended = () => setPushOverlay(null)
+                }
+                break
+            case 'override_content':
+                if (pld.content_item) {
+                    setPushOverlay({ type: 'override', content_item: pld.content_item, duration: pld.duration || 30 })
+                    setTimeout(() => setPushOverlay(null), (pld.duration || 30) * 1000)
+                }
+                break
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!screen) return
+        const displayKey = params.screenId
+
+        const pollPushEvents = async () => {
+            try {
+                const res = await fetch(`/api/display/${displayKey}/push-events`)
+                if (!res.ok) return
+                const { events } = await res.json()
+                if (events && events.length > 0) {
+                    // Process newest first (they come sorted by created_at desc)
+                    for (const ev of events) {
+                        processPushEvent(ev)
+                    }
+                }
+            } catch {
+                // Silent fail — display should never crash from polling
+            }
+        }
+
+        // Poll every 3 seconds
+        const interval = setInterval(pollPushEvents, 3000)
+        // Also poll once immediately
+        pollPushEvents()
+
+        return () => clearInterval(interval)
+    }, [screen, params.screenId, processPushEvent])
 
 
     // ==============================================================
