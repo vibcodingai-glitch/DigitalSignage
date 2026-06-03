@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { formatDistanceToNow, format } from "date-fns"
-import { broadcastPushEvent } from "@/lib/actions/push-events"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -114,41 +113,22 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
     const [isConfirmOpen, setIsConfirmOpen] = useState(false)
 
     const fetchData = useCallback(async () => {
-        const orgId = profileRef.current?.organization_id
-        if (!orgId) return
         setIsFetching(true)
         try {
-            const { data: screensData } = await supabase
-                .from("screens")
-                .select("id, name, status")
-                .eq("organization_id", orgId)
-                .order("name")
+            const res = await fetch('/api/push-events/data')
+            if (!res.ok) return
+            const data = await res.json()
 
-            if (screensData) {
-                setScreens(screensData)
-                if (screensData.length > 0 && !screenId) {
-                    setScreenId(screensData[0].id)
+            if (data.screens) {
+                setScreens(data.screens)
+                if (data.screens.length > 0 && !screenId) {
+                    setScreenId(data.screens[0].id)
                 }
             }
-
-            const [{ data: contentData }, { data: eventsData }] = await Promise.all([
-                supabase
-                    .from("content_items")
-                    .select("id, name, type, source_url, file_path, duration_seconds, metadata")
-                    .eq("organization_id", orgId)
-                    .order("name"),
-                supabase
-                    .from("push_events")
-                    .select(`*, screen:screens(name)`)
-                    .in("screen_id", screensData?.map(s => s.id) ?? [])
-                    .order("created_at", { ascending: false })
-                    .limit(100)
-            ])
-
-            if (contentData) setContentItems(contentData)
-            if (eventsData) setEvents(eventsData as PushEvent[])
+            if (data.contentItems) setContentItems(data.contentItems)
+            if (data.events) setEvents(data.events as PushEvent[])
         } catch (err) {
-            toast({ title: "Failed to load push events", description: (err as Error).message, variant: "destructive" })
+            console.error('[PushEvents] Fetch error:', err)
         } finally {
             setIsFetching(false)
         }
@@ -242,13 +222,10 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
 
     const executeSend = async () => {
         setIsSending(true)
-        try {
-            const orgId = profileRef.current?.organization_id
-            if (!orgId) {
-                toast({ title: "Session not ready", description: "Please refresh the page and try again.", variant: "destructive" })
-                return
-            }
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 12000) // 12s hard timeout
 
+        try {
             let finalPayload = { ...payload }
             if (eventType === "custom") {
                 finalPayload = JSON.parse(jsonPayloadStr)
@@ -263,52 +240,70 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
                 ? new Date(Date.now() + parseInt(expiryMinutes) * 60 * 1000).toISOString()
                 : undefined
 
+            let body: any
+
             if (targetType === "all") {
-                const res = await broadcastPushEvent({
-                    eventType,
-                    payload: finalPayload,
-                    expiresAt
-                })
-                if (!res.success) throw new Error(res.error)
-                toast({ title: `✓ Broadcast sent to ${res.count} screens` })
+                body = { broadcast: true, eventType, payload: finalPayload, expiresAt }
             } else if (targetType === "multiple") {
-                const eventsToInsert = selectedScreenIds.map(id => ({
-                    screen_id: id,
-                    event_type: eventType,
-                    payload: finalPayload,
-                    created_by: profileRef.current?.id,
-                    expires_at: expiresAt || null
-                }))
-                const { error } = await supabase.from("push_events").insert(eventsToInsert)
-                if (error) throw error
-                toast({ title: `✓ Push event sent to ${selectedScreenIds.length} screens` })
+                body = {
+                    events: selectedScreenIds.map(id => ({
+                        screen_id: id,
+                        event_type: eventType,
+                        payload: finalPayload,
+                        expires_at: expiresAt || null
+                    }))
+                }
             } else {
-                const { error } = await supabase.from("push_events").insert({
-                    screen_id: screenId,
-                    event_type: eventType,
-                    payload: finalPayload,
-                    created_by: profileRef.current?.id,
-                    expires_at: expiresAt || null
-                })
-                if (error) throw error
-                toast({ title: `✓ Push event sent successfully` })
+                body = {
+                    events: [{
+                        screen_id: screenId,
+                        event_type: eventType,
+                        payload: finalPayload,
+                        expires_at: expiresAt || null
+                    }]
+                }
             }
+
+            const res = await fetch('/api/push-events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: controller.signal
+            })
+
+            const result = await res.json()
+            if (!res.ok) throw new Error(result.error || 'Failed to send')
+
+            const label = targetType === "all" ? `Broadcast sent to ${result.count} screens`
+                : targetType === "multiple" ? `Push event sent to ${selectedScreenIds.length} screens`
+                : `Push event sent successfully`
+            toast({ title: `✓ ${label}` })
 
             setIsCreateOpen(false)
             setIsConfirmOpen(false)
             fetchData()
-        } catch (err) {
-            console.error('[PushEvents] Send error:', err)
-            toast({ title: "Failed to send push event", description: (err as Error).message, variant: "destructive" })
+        } catch (err: any) {
+            if (err.name === 'AbortError') {
+                toast({ title: "Request timed out", description: "Please refresh the page and try again.", variant: "destructive" })
+            } else {
+                console.error('[PushEvents] Send error:', err)
+                toast({ title: "Failed to send push event", description: err.message, variant: "destructive" })
+            }
         } finally {
+            clearTimeout(timeout)
             setIsSending(false)
         }
     }
 
     const handleDelete = async (ids: string[]) => {
         try {
-            const { error } = await supabase.from("push_events").delete().in("id", ids)
-            if (error) throw error
+            const res = await fetch('/api/push-events', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids })
+            })
+            const result = await res.json()
+            if (!res.ok) throw new Error(result.error || 'Delete failed')
             setEvents(prev => prev.filter(e => !ids.includes(e.id)))
             toast({ title: "Event(s) deleted" })
         } catch (err) {
