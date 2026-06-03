@@ -129,7 +129,7 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
             const [{ data: contentData }, { data: eventsData }] = await Promise.all([
                 supabase
                     .from("content_items")
-                    .select("id, name, type")
+                    .select("id, name, type, source_url, file_path, duration_seconds, metadata")
                     .eq("organization_id", profile?.organization_id)
                     .order("name"),
                 supabase
@@ -245,6 +245,12 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
                 toast({ title: "Invalid JSON payload", description: "Please fix the JSON syntax", variant: "destructive" })
                 setIsConfirmOpen(false)
                 return
+            }
+        } else if (eventType === "override_content") {
+            // Display engine expects the full content_item object, not just the ID
+            const item = contentItems.find(i => i.id === finalPayload.content_item_id)
+            if (item) {
+                finalPayload.content_item = item
             }
         }
 
