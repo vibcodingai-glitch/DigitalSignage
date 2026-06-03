@@ -90,6 +90,8 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
     const { profile } = useUser()
     const supabase = createClient()
     const { toast } = useToast()
+    const profileRef = useRef(profile)
+    profileRef.current = profile
 
     const [screens, setScreens] = useState<Screen[]>(fallbackData?.screens || [])
     const [events, setEvents] = useState<PushEvent[]>(fallbackData?.events || [])
@@ -112,12 +114,14 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
     const [isConfirmOpen, setIsConfirmOpen] = useState(false)
 
     const fetchData = useCallback(async () => {
+        const orgId = profileRef.current?.organization_id
+        if (!orgId) return
         setIsFetching(true)
         try {
             const { data: screensData } = await supabase
                 .from("screens")
                 .select("id, name, status")
-                .eq("organization_id", profile?.organization_id)
+                .eq("organization_id", orgId)
                 .order("name")
 
             if (screensData) {
@@ -131,7 +135,7 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
                 supabase
                     .from("content_items")
                     .select("id, name, type, source_url, file_path, duration_seconds, metadata")
-                    .eq("organization_id", profile?.organization_id)
+                    .eq("organization_id", orgId)
                     .order("name"),
                 supabase
                     .from("push_events")
@@ -239,16 +243,9 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
     const executeSend = async () => {
         setIsSending(true)
         try {
-            let orgId = profile?.organization_id
+            const orgId = profileRef.current?.organization_id
             if (!orgId) {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (user) {
-                    const { data } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
-                    if (data?.organization_id) orgId = data.organization_id
-                }
-            }
-            if (!orgId) {
-                toast({ title: "Session not ready", description: "Please try again.", variant: "destructive" })
+                toast({ title: "Session not ready", description: "Please refresh the page and try again.", variant: "destructive" })
                 return
             }
 
@@ -279,7 +276,7 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
                     screen_id: id,
                     event_type: eventType,
                     payload: finalPayload,
-                    created_by: profile?.id,
+                    created_by: profileRef.current?.id,
                     expires_at: expiresAt || null
                 }))
                 const { error } = await supabase.from("push_events").insert(eventsToInsert)
@@ -290,7 +287,7 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
                     screen_id: screenId,
                     event_type: eventType,
                     payload: finalPayload,
-                    created_by: profile?.id,
+                    created_by: profileRef.current?.id,
                     expires_at: expiresAt || null
                 })
                 if (error) throw error
