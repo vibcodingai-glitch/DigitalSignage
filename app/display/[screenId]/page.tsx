@@ -367,7 +367,7 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
                         }
                         break
                     case 'override_content':
-                        if (pld.content_item) {
+                        if (pld.content_item && (pld.content_item.source_url || pld.content_item.file_path)) {
                             setPushOverlay({ type: 'override', content_item: pld.content_item, duration: pld.duration || 30 })
                             setTimeout(() => setPushOverlay(null), (pld.duration || 30) * 1000)
                         }
@@ -439,9 +439,11 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
                 }
                 break
             case 'override_content':
-                if (pld.content_item) {
+                if (pld.content_item && (pld.content_item.source_url || pld.content_item.file_path)) {
                     setPushOverlay({ type: 'override', content_item: pld.content_item, duration: pld.duration || 30 })
                     setTimeout(() => setPushOverlay(null), (pld.duration || 30) * 1000)
+                } else {
+                    console.warn('[Display] Override content_item missing source_url/file_path, skipping')
                 }
                 break
         }

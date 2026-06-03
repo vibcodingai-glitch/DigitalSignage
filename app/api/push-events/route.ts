@@ -38,6 +38,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No organization found' }, { status: 400 })
     }
 
+    // Enrich content_item for override_content events
+    async function enrichPayload(p: any, evType: string) {
+      if (evType === 'override_content' && p?.content_item_id) {
+        const { data: fullItem } = await supabaseAdmin
+          .from('content_items')
+          .select('id, name, type, source_url, file_path, duration_seconds, metadata')
+          .eq('id', p.content_item_id)
+          .single()
+        if (fullItem) {
+          return { ...p, content_item: fullItem }
+        }
+      }
+      return p
+    }
+
     if (broadcast) {
       // Broadcast to all screens in org
       const { data: screens } = await supabaseAdmin
@@ -49,10 +64,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'No screens found' }, { status: 400 })
       }
 
+      const enrichedPayload = await enrichPayload(payload, eventType)
+
       const rows = screens.map(s => ({
         screen_id: s.id,
         event_type: eventType,
-        payload,
+        payload: enrichedPayload,
         created_by: user.id,
         expires_at: expiresAt || null
       }))
@@ -81,12 +98,14 @@ export async function POST(request: Request) {
     }
 
     const validIds = new Set(validScreens.map(s => s.id))
-    const rows = events
-      .filter((e: any) => validIds.has(e.screen_id))
-      .map((e: any) => ({
-        ...e,
-        created_by: user.id
-      }))
+    const filteredEvents = events.filter((e: any) => validIds.has(e.screen_id))
+    
+    // Enrich payloads
+    const rows = await Promise.all(filteredEvents.map(async (e: any) => ({
+      ...e,
+      payload: await enrichPayload(e.payload, e.event_type),
+      created_by: user.id
+    })))
 
     const { error } = await supabaseAdmin.from('push_events').insert(rows)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
