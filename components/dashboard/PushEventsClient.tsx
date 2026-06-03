@@ -100,8 +100,9 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
     const [isUploading, setIsUploading] = useState(false)
 
     // Form state
-    const [targetType, setTargetType] = useState<"single" | "all">("single")
+    const [targetType, setTargetType] = useState<"single" | "multiple" | "all">("single")
     const [screenId, setScreenId] = useState<string>("")
+    const [selectedScreenIds, setSelectedScreenIds] = useState<string[]>([])
     const [eventType, setEventType] = useState<string>("play_sound")
     const [expiryMinutes, setExpiryMinutes] = useState("5")
     const [payload, setPayload] = useState<Record<string, any>>({})
@@ -216,6 +217,11 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
             return
         }
 
+        if (targetType === "multiple" && selectedScreenIds.length === 0) {
+            toast({ title: "Please select at least one screen", variant: "destructive" })
+            return
+        }
+
         if (targetType === "all") {
             setIsConfirmOpen(true)
         } else {
@@ -268,6 +274,17 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
                 })
                 if (!res.success) throw new Error(res.error)
                 toast({ title: `✓ Broadcast sent to ${res.count} screens` })
+            } else if (targetType === "multiple") {
+                const eventsToInsert = selectedScreenIds.map(id => ({
+                    screen_id: id,
+                    event_type: eventType,
+                    payload: finalPayload,
+                    created_by: profile?.id,
+                    expires_at: expiresAt || null
+                }))
+                const { error } = await supabase.from("push_events").insert(eventsToInsert)
+                if (error) throw error
+                toast({ title: `✓ Push event sent to ${selectedScreenIds.length} screens` })
             } else {
                 const { error } = await supabase.from("push_events").insert({
                     screen_id: screenId,
@@ -593,7 +610,40 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
                                     />
                                     <span className="text-sm font-medium">All Screens</span>
                                 </label>
+                                <label className="flex items-center gap-2 cursor-pointer border p-3 flex-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                                    <input 
+                                        type="radio" 
+                                        name="target" 
+                                        checked={targetType === "multiple"} 
+                                        onChange={() => setTargetType("multiple")}
+                                        className="h-4 w-4 text-indigo-600"
+                                    />
+                                    <span className="text-sm font-medium">Select Multiple</span>
+                                </label>
                             </div>
+
+                            {targetType === "multiple" && (
+                                <div className="pt-2 animate-in fade-in slide-in-from-top-2 space-y-2 max-h-[200px] overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-md p-2 bg-slate-50/50 dark:bg-slate-900/50">
+                                    {screens.map(s => (
+                                        <label key={s.id} className="flex items-center gap-3 p-2 hover:bg-white dark:hover:bg-slate-950 cursor-pointer rounded-md border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all">
+                                            <input 
+                                                type="checkbox"
+                                                checked={selectedScreenIds.includes(s.id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setSelectedScreenIds(prev => [...prev, s.id])
+                                                    else setSelectedScreenIds(prev => prev.filter(id => id !== s.id))
+                                                }}
+                                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                                            />
+                                            <span className="flex items-center gap-2 text-sm">
+                                                <span className={`h-2 w-2 rounded-full ${s.status === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                                                {s.name}
+                                            </span>
+                                        </label>
+                                    ))}
+                                    {screens.length === 0 && <div className="text-sm text-slate-500 p-2">No screens available</div>}
+                                </div>
+                            )}
 
                             {targetType === "single" && (
                                 <div className="pt-2 animate-in fade-in slide-in-from-top-2">
