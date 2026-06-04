@@ -342,11 +342,22 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
             })
 
             // Push events — check expires_at before acting
+            // Push events — listen to INSERT and UPDATE
             channel.on('postgres_changes', {
-                event: 'INSERT', schema: 'public', table: 'push_events', filter: `screen_id=eq.${screen.id}`
+                event: '*', schema: 'public', table: 'push_events', filter: `screen_id=eq.${screen.id}`
             }, (payload) => {
-                const ev = payload.new
-                // Ignore expired events (e.g. device was offline, came back to stale queue)
+                const ev = payload.new || payload.old
+                
+                // If it's an UPDATE and the event is now expired, clear the overlay
+                if (payload.eventType === 'UPDATE') {
+                    if (ev.expires_at && new Date(ev.expires_at) <= new Date()) {
+                        console.log('[Display] Push event was stopped remotely:', ev.id)
+                        setPushOverlay(null)
+                    }
+                    return
+                }
+
+                // For INSERT, ignore expired events (e.g. device was offline, came back to stale queue)
                 if (ev.expires_at && new Date(ev.expires_at) < new Date()) {
                     console.log('[Display] Ignoring expired push event:', ev.id)
                     return
