@@ -114,7 +114,13 @@ export async function GET(
         : item.content_item,
     }))
 
-    const res = NextResponse.json({ screen, project, playlist, timezone })
+    const res = NextResponse.json({ 
+      screen, 
+      project, 
+      playlist, 
+      timezone,
+      debug_supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL 
+    })
     // Cache disabled completely
     res.headers.set('Cache-Control', 'no-store, max-age=0')
     return res
