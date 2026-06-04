@@ -2,8 +2,6 @@
 
 import React, { useState, useCallback } from "react"
 import { useDropzone } from "react-dropzone"
-import { createClient } from "@/lib/supabase/client"
-import { useUser } from "@/hooks/use-user"
 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -33,8 +31,6 @@ interface UploadDialogProps {
 }
 
 export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChange, onUploadComplete }: UploadDialogProps) {
-    const { profile, user } = useUser()
-    const supabase = createClient()
     const { toast } = useToast()
 
     const [uploadFiles, setUploadFiles] = useState<UploadFileItem[]>([])
@@ -81,14 +77,6 @@ export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChang
     }
 
     const startUploads = async () => {
-        let orgId = profile?.organization_id
-        if (!orgId) {
-            if (user) {
-                const { data } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
-                if (data?.organization_id) orgId = data.organization_id
-            }
-        }
-        if (!orgId) return
         setIsUploading(true)
 
         for (let i = 0; i < uploadFiles.length; i++) {
@@ -96,10 +84,6 @@ export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChang
 
             const fileItem = uploadFiles[i]
             updateUploadState(i, { status: 'uploading', progress: 10 })
-
-            const file = fileItem.file
-            const ext = file.name.split('.').pop()
-            const filePath = `${orgId}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`
 
             // Progress Simulator
             const progressTimer = setInterval(() => {
@@ -113,69 +97,22 @@ export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChang
             }, 300)
 
             try {
-                // Upload to storage via direct fetch to bypass Web Locks API deadlock
-                const { data: { session } } = await supabase.auth.getSession()
-                if (!session?.access_token) {
-                    throw new Error("No active session")
-                }
+                // Upload entirely via server-side API to bypass Web Locks deadlock
+                const formData = new FormData()
+                formData.append('file', fileItem.file)
+                formData.append('name', fileItem.name)
+                formData.append('duration', String(fileItem.duration))
 
-                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-                const uploadUrl = `${supabaseUrl}/storage/v1/object/content/${filePath}`
-
-                const res = await fetch(uploadUrl, {
+                const res = await fetch('/api/upload', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'Content-Type': file.type || 'application/octet-stream',
-                    },
-                    body: file
+                    body: formData
                 })
 
                 clearInterval(progressTimer)
 
                 if (!res.ok) {
-                    let errObj: any = {}
-                    try { errObj = await res.json() } catch(e) {}
-                    throw new Error(errObj.message || errObj.error || 'Storage upload failed')
-                }
-
-                const storageData = { path: filePath }
-
-                updateUploadState(i, { progress: 95 })
-
-                const { data: { publicUrl } } = supabase.storage.from('content').getPublicUrl(storageData.path)
-
-                // Determine mapped type
-                const mime = file.type
-                let type: ContentItem['type'] = 'image'
-                if (mime.startsWith('video/')) type = 'video'
-                if (mime.startsWith('audio/')) type = 'audio'
-
-                // Insert to content_items via direct fetch to bypass Web Locks API deadlock
-                const insertRes = await fetch(`${supabaseUrl}/rest/v1/content_items`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=minimal'
-                    },
-                    body: JSON.stringify({
-                        organization_id: orgId,
-                        name: fileItem.name,
-                        type: type,
-                        file_path: storageData.path,
-                        source_url: publicUrl,
-                        file_size: file.size,
-                        duration_seconds: type === 'video' ? 0 : fileItem.duration, // Video overrides dynamically on run
-                        thumbnail_url: type === 'image' ? publicUrl : null // Simple image thumb fallback
-                    })
-                })
-
-                if (!insertRes.ok) {
-                    let errObj: any = {}
-                    try { errObj = await insertRes.json() } catch(e) {}
-                    throw new Error(errObj.message || errObj.error || 'Database insert failed')
+                    const errData = await res.json().catch(() => ({}))
+                    throw new Error(errData.error || 'Upload failed')
                 }
 
                 updateUploadState(i, { status: 'success', progress: 100 })
