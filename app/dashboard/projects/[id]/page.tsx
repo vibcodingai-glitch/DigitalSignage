@@ -680,7 +680,7 @@ export default function ProjectEditorPage({ params }: { params: { id: string } }
                                             <p className="text-sm text-slate-500 max-w-sm mt-1">Drag assets from the left library panel into this zone to architect your playback timeline.</p>
                                         </div>
                                     ) : (
-                                        <div className="flex flex-row overflow-x-auto gap-4 pb-24 pt-4 px-2 items-center min-h-[250px] custom-scrollbar">
+                                        <div className="flex flex-row flex-wrap gap-4 pb-8 pt-4 px-2 items-start min-h-[250px]">
 
                                             {activeZonePlaylist.map((playItem, index) => (
                                                 <SortablePlaylistItem
@@ -939,7 +939,7 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
         transform: CSS.Transform.toString(transform),
         transition,
         zIndex: isDragging ? 2 : 1,
-        width: `${computedWidth}px`,
+        width: '200px',
         flexShrink: 0
     };
 
