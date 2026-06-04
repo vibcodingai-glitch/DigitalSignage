@@ -87,7 +87,7 @@ export async function GET(
 
     if (!winningProjectId) {
       const res = NextResponse.json({ screen, project: null, playlist: [], timezone })
-      res.headers.set('Cache-Control', 's-maxage=5, stale-while-revalidate=30')
+      res.headers.set('Cache-Control', 'no-store, max-age=0')
       return res
     }
 
@@ -115,8 +115,8 @@ export async function GET(
     }))
 
     const res = NextResponse.json({ screen, project, playlist, timezone })
-    // Cache for 10s at edge, serve stale for up to 50s while revalidating
-    res.headers.set('Cache-Control', 's-maxage=10, stale-while-revalidate=50')
+    // Cache disabled completely
+    res.headers.set('Cache-Control', 'no-store, max-age=0')
     return res
   } catch (err) {
     console.error('[/api/display] Error:', err)
