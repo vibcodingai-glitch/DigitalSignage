@@ -939,7 +939,7 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
         transform: CSS.Transform.toString(transform),
         transition,
         zIndex: isDragging ? 2 : 1,
-        width: '200px',
+        width: '240px',
         flexShrink: 0
     };
 
@@ -958,19 +958,10 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
             <div
                 {...attributes}
                 {...listeners}
-                className="h-8 bg-slate-50/50 dark:bg-slate-900 w-full flex items-center justify-center border-b border-slate-200 dark:border-slate-800 cursor-grab active:cursor-grabbing text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors shrink-0 relative"
+                className="h-8 bg-slate-50/50 dark:bg-slate-900 w-full flex items-center justify-center border-b border-slate-200 dark:border-slate-800 cursor-grab active:cursor-grabbing text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors shrink-0"
             >
                 <div className="text-[10px] font-mono font-bold text-slate-300 mr-2">{index + 1}</div>
                 <GripVertical className="h-4 w-4 rotate-90" />
-                {/* Always-visible delete button */}
-                <button
-                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-md z-20 transition-transform hover:scale-110"
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemove(); }}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    title="Remove from playlist"
-                >
-                    <X className="h-3 w-3" />
-                </button>
             </div>
 
             <CardContent className="p-3 flex-1 flex flex-col items-start gap-2 min-w-0">
@@ -1006,7 +997,7 @@ function SortablePlaylistItem({ item, index, onUpdate, onRemove, icon, colorClas
 
                     <div className="flex items-center gap-1">
                         <Select value={item.transition_type} onValueChange={(v) => onUpdate({ transition_type: v })}>
-                            <SelectTrigger className="w-20 h-7 text-xs px-2" onClick={e => e.stopPropagation()}>
+                            <SelectTrigger className="w-[72px] h-7 text-xs px-2" onClick={e => e.stopPropagation()}>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
