@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from "@/hooks/use-toast"
 import {
     Zap, Plus, MonitorPlay, RefreshCw, Volume2, AlertTriangle, Play, Loader2,
-    Clock, Trash2, ChevronRight, Radio, Send, Upload
+    Clock, Trash2, ChevronRight, Radio, Send, Upload, XOctagon
 } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 
@@ -311,6 +311,25 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
         }
     }
 
+    const handleStopEvent = async (ids: string[]) => {
+        try {
+            const res = await fetch('/api/push-events', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids })
+            })
+            const result = await res.json()
+            if (!res.ok) throw new Error(result.error || 'Stop failed')
+            
+            // Optimistically update local state to expired
+            const now = new Date().toISOString()
+            setEvents(prev => prev.map(e => ids.includes(e.id) ? { ...e, expires_at: now } : e))
+            toast({ title: "Event(s) stopped" })
+        } catch (err) {
+            toast({ title: "Failed to stop event", description: (err as Error).message, variant: "destructive" })
+        }
+    }
+
     const isExpired = (event: PushEvent) =>
         event.expires_at && new Date(event.expires_at) < new Date()
 
@@ -549,15 +568,29 @@ export default function PushEventsClient({ fallbackData }: { fallbackData: any }
                                             {format(new Date(group.created_at), "MMM d, h:mm a")}
                                         </div>
 
-                                        {/* Delete */}
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
-                                            onClick={() => handleDelete(group.ids)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        {/* Actions (Stop / Delete) */}
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                            {!expired && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                                    onClick={() => handleStopEvent(group.ids)}
+                                                    title="Stop Event"
+                                                >
+                                                    <XOctagon className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                onClick={() => handleDelete(group.ids)}
+                                                title="Delete Event"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
                                 )
                             })}

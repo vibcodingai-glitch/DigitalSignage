@@ -142,3 +142,33 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })
   }
 }
+
+// ── PATCH: Expire push events early ──
+export async function PATCH(request: Request) {
+  try {
+    const supabaseAdmin = createServiceClient()
+
+    const serverSupabase = createServerClient()
+    const { data: { user }, error: authError } = await serverSupabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { ids } = await request.json()
+    if (!ids || ids.length === 0) {
+      return NextResponse.json({ error: 'No event IDs provided' }, { status: 400 })
+    }
+
+    const { error } = await supabaseAdmin
+      .from('push_events')
+      .update({ expires_at: new Date().toISOString() })
+      .in('id', ids)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('[PATCH /api/push-events]', err)
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 })
+  }
+}

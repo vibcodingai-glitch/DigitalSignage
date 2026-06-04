@@ -113,17 +113,33 @@ export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChang
             }, 300)
 
             try {
-                // Upload to storage
-                const { data: storageData, error: storageError } = await supabase.storage
-                    .from('content')
-                    .upload(filePath, file)
+                // Upload to storage via direct fetch to bypass Web Locks API deadlock
+                const { data: { session } } = await supabase.auth.getSession()
+                if (!session?.access_token) {
+                    throw new Error("No active session")
+                }
+
+                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+                const uploadUrl = `${supabaseUrl}/storage/v1/object/content/${filePath}`
+
+                const res = await fetch(uploadUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': file.type || 'application/octet-stream',
+                    },
+                    body: file
+                })
 
                 clearInterval(progressTimer)
 
-                if (storageError) {
-                    // It will fail gracefully if the bucket "content" doesn't exist, displaying error.
-                    throw storageError
+                if (!res.ok) {
+                    let errObj: any = {}
+                    try { errObj = await res.json() } catch(e) {}
+                    throw new Error(errObj.message || errObj.error || 'Storage upload failed')
                 }
+
+                const storageData = { path: filePath }
 
                 updateUploadState(i, { progress: 95 })
 
@@ -135,19 +151,32 @@ export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChang
                 if (mime.startsWith('video/')) type = 'video'
                 if (mime.startsWith('audio/')) type = 'audio'
 
-                // Insert to content_items
-                const { error: dbError } = await supabase.from('content_items').insert({
-                    organization_id: orgId,
-                    name: fileItem.name,
-                    type: type,
-                    file_path: storageData.path,
-                    source_url: publicUrl,
-                    file_size: file.size,
-                    duration_seconds: type === 'video' ? 0 : fileItem.duration, // Video overrides dynamically on run
-                    thumbnail_url: type === 'image' ? publicUrl : null // Simple image thumb fallback
+                // Insert to content_items via direct fetch to bypass Web Locks API deadlock
+                const insertRes = await fetch(`${supabaseUrl}/rest/v1/content_items`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify({
+                        organization_id: orgId,
+                        name: fileItem.name,
+                        type: type,
+                        file_path: storageData.path,
+                        source_url: publicUrl,
+                        file_size: file.size,
+                        duration_seconds: type === 'video' ? 0 : fileItem.duration, // Video overrides dynamically on run
+                        thumbnail_url: type === 'image' ? publicUrl : null // Simple image thumb fallback
+                    })
                 })
 
-                if (dbError) throw dbError
+                if (!insertRes.ok) {
+                    let errObj: any = {}
+                    try { errObj = await insertRes.json() } catch(e) {}
+                    throw new Error(errObj.message || errObj.error || 'Database insert failed')
+                }
 
                 updateUploadState(i, { status: 'success', progress: 100 })
             } catch (error) {
