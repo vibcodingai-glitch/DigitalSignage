@@ -9,17 +9,14 @@ export function getTransitionClass(transition: string) {
     }
 }
 
-export function getProxiedUrl(url: string, appUrl: string): string {
-    // Only proxy external URLs, not same-origin
+export function getProxiedUrl(url: string, _appUrl: string): string {
+    // Load all URLs directly in iframes — proxying breaks SPA sites
+    // (their relative asset paths resolve against the wrong origin).
+    // The proxy is kept available as a manual fallback but is NOT the default.
     try {
         const urlObj = new URL(url)
-        
-        // 1. PowerBI — always use the original URL directly.
-        if (urlObj.hostname.includes('powerbi.com')) {
-            return url  // pass through untouched
-        }
 
-        // 2. Tableau Public — use their native embed URL directly
+        // Tableau Public — use their native embed URL directly
         if (urlObj.hostname.includes('tableau.com')) {
             const match = urlObj.pathname.match(/\/viz\/([^/]+)\/([^/]+)/)
             if (match) {
@@ -34,15 +31,8 @@ export function getProxiedUrl(url: string, appUrl: string): string {
             return url
         }
 
-        // 3. Same-origin check
-        if (!appUrl) return url;
-        const appUrlObj = new URL(appUrl)
-        if (urlObj.origin === appUrlObj.origin) {
-            return url
-        }
-
-        // 4. External URL — proxy it to strip X-Frame-Options
-        return `${appUrl}/api/proxy?url=${encodeURIComponent(url)}`
+        // Everything else — load directly (PowerBI, external URLs, etc.)
+        return url
     } catch {
         return url
     }
