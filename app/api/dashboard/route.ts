@@ -92,11 +92,14 @@ export async function GET(request: Request) {
           .order('created_at', { ascending: false })
 
         const projectIds = (projects || []).map(p => p.id)
-        const [{ data: items }, { data: screens }] = await Promise.all([
+        const [{ data: items }, { data: screens }, { data: screenProjects }] = await Promise.all([
           projectIds.length > 0
             ? sb.from('playlist_items').select('project_id, duration_override').in('project_id', projectIds)
             : Promise.resolve({ data: [] as any[] }),
           sb.from('screens').select('id, name').eq('organization_id', orgId),
+          projectIds.length > 0
+            ? sb.from('screen_projects').select('project_id, screen_id, schedule_type').in('project_id', projectIds)
+            : Promise.resolve({ data: [] as any[] }),
         ])
 
         const countByProject = new Map<string, { count: number; totalDuration: number }>()
@@ -107,10 +110,33 @@ export async function GET(request: Request) {
         }
         const screenMap = new Map((screens || []).map(s => [s.id, s]))
 
+        // Build a map of project_id -> bound screens from screen_projects junction table
+        const boundScreensByProject = new Map<string, { screens: any[]; scheduleCount: number }>()
+        for (const sp of screenProjects || []) {
+          const entry = boundScreensByProject.get(sp.project_id)
+          const screenInfo = screenMap.get(sp.screen_id)
+          if (entry) {
+            if (screenInfo) entry.screens.push(screenInfo)
+            if (sp.schedule_type === 'scheduled') entry.scheduleCount++
+          } else {
+            boundScreensByProject.set(sp.project_id, {
+              screens: screenInfo ? [screenInfo] : [],
+              scheduleCount: sp.schedule_type === 'scheduled' ? 1 : 0,
+            })
+          }
+        }
+
         return NextResponse.json(
           (projects || []).map(p => {
             const stats = countByProject.get(p.id) || { count: 0, totalDuration: 0 }
-            return { ...p, numItems: stats.count, totalDuration: stats.totalDuration, numSchedules: 0, screen: screenMap.get(p.screen_id) || null }
+            const boundInfo = boundScreensByProject.get(p.id)
+            // Prefer screen_projects bindings; fall back to legacy screen_id FK
+            const screen = boundInfo && boundInfo.screens.length > 0
+              ? boundInfo.screens[0]
+              : screenMap.get(p.screen_id) || null
+            const boundScreenCount = boundInfo ? boundInfo.screens.length : (p.screen_id ? 1 : 0)
+            const numSchedules = boundInfo ? boundInfo.scheduleCount : 0
+            return { ...p, numItems: stats.count, totalDuration: stats.totalDuration, numSchedules, screen, boundScreenCount }
           })
         )
       }

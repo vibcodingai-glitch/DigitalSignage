@@ -225,7 +225,12 @@ function ProjectsContent() {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            {project.screen ? (
+                                            {project.boundScreenCount > 1 ? (
+                                                <Badge variant="outline" className="font-normal bg-white dark:bg-slate-950">
+                                                    <MonitorPlay className="h-3 w-3 mr-1.5 text-indigo-400" />
+                                                    {project.boundScreenCount} Screens
+                                                </Badge>
+                                            ) : project.screen ? (
                                                 <Link href={`/dashboard/screens/${project.screen.id}`}>
                                                     <Badge variant="outline" className="font-normal bg-white dark:bg-slate-950 hover:bg-slate-100 cursor-pointer">
                                                         <MonitorPlay className="h-3 w-3 mr-1.5 text-slate-400" />
