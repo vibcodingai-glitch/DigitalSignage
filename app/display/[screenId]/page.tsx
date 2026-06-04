@@ -419,6 +419,7 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
     // PUSH EVENT POLLING (reliable fallback for broken Realtime)
     // ==============================================================
     const processedPushIdsRef = useRef<Set<string>>(new Set())
+    const pageLoadTimeRef = useRef(new Date())
     
     const processPushEvent = useCallback((ev: any) => {
         if (processedPushIdsRef.current.has(ev.id)) return
@@ -432,6 +433,12 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
 
         // Ignore expired events
         if (ev.expires_at && new Date(ev.expires_at) < new Date()) return
+
+        // Prevent infinite reload loops: ignore reload events created before this page booted up
+        if (ev.event_type === 'reload' && ev.created_at && new Date(ev.created_at) <= pageLoadTimeRef.current) {
+            console.log('[Display] Ignoring stale reload event to prevent infinite loop:', ev.id)
+            return
+        }
 
         const pld = ev.payload || {}
         console.log('[Display] Processing push event:', ev.event_type, ev.id)
