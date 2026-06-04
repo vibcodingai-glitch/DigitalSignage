@@ -70,21 +70,9 @@ export default function ContentRenderer({
 
     const handleIframeLoad = useCallback(() => {
         setIsLoading(false)
-        const isPowerBIOrMS = src.includes('powerbi.com') || src.includes('microsoft.com') || src.includes('microsoftonline.com')
-        if (isPowerBIOrMS) return
-
-        try {
-            const doc = iframeRef.current?.contentDocument
-            if (!doc) return
-            const body = doc.body?.innerHTML?.trim() ?? ''
-            if (body.length < 50) {
-                console.warn('[Display] Iframe body too small — treating as blocked:', src)
-                setIframeError(true)
-            }
-        } catch {
-            setIframeError(true)
-        }
-    }, [src])
+        // We cannot reliably check contentDocument for cross-origin iframes due to CORS,
+        // so we simply assume it loaded successfully if the onLoad event fires.
+    }, [])
 
     useEffect(() => {
         setIsLoading(true)
