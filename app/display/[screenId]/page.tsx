@@ -52,11 +52,15 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
     const screenRef = useRef<Screen | null>(null)
     const projectRef = useRef<Project | null>(null)
     const playlistRef = useRef<PlaylistItem[]>([])
+    const timezoneRef = useRef<string>('UTC')
+    const [isSleeping, setIsSleeping] = useState(false)
+    const isSleepingRef = useRef(false)
 
     // Keep refs in sync
     screenRef.current = screen
     projectRef.current = project
     playlistRef.current = playlist
+    isSleepingRef.current = isSleeping
 
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
@@ -125,7 +129,8 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
                 return
             }
 
-            const { screen: screenData, project: projData, playlist: items } = await res.json()
+            const { screen: screenData, project: projData, playlist: items, timezone } = await res.json()
+            if (timezone) timezoneRef.current = timezone
 
             setIsOffline(false)
             setScreen(screenData as Screen)
@@ -279,6 +284,7 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
         if (!screen) return
 
         const evaluateSchedules = async () => {
+            if (isSleepingRef.current) return
             try {
                 const res = await fetch(`/api/display/${params.screenId}`)
                 if (!res.ok) return
@@ -473,6 +479,7 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
         const displayKey = params.screenId
 
         const pollPushEvents = async () => {
+            if (isSleepingRef.current) return
             try {
                 const res = await fetch(`/api/display/${displayKey}/push-events`)
                 if (!res.ok) return
@@ -495,6 +502,31 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
 
         return () => clearInterval(interval)
     }, [screen, params.screenId, processPushEvent])
+
+
+    // ==============================================================
+    // WEEKEND SLEEP MODE
+    // ==============================================================
+    useEffect(() => {
+        const evaluateSleepMode = () => {
+            try {
+                const tz = timezoneRef.current || 'UTC'
+                // Use en-US to parse standard Day index
+                const dateString = new Date().toLocaleString('en-US', { timeZone: tz })
+                const dateInTz = new Date(dateString)
+                const day = dateInTz.getDay()
+                // 0 = Sunday, 6 = Saturday
+                setIsSleeping(day === 0 || day === 6)
+            } catch (err) {
+                console.warn('[SleepMode] Error evaluating timezone', err)
+            }
+        }
+
+        evaluateSleepMode()
+        // Check every 5 minutes if we should wake up or go to sleep
+        const iv = setInterval(evaluateSleepMode, 300_000)
+        return () => clearInterval(iv)
+    }, [])
 
 
     // ==============================================================
@@ -555,6 +587,18 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
                         />
                     </div>
                 )}
+            </div>
+        )
+    }
+
+    if (isSleeping) {
+        return (
+            <div className={`w-screen h-screen bg-black flex flex-col items-center justify-center ${hideCursor ? 'cursor-none' : ''}`}>
+                <div className="opacity-20 flex flex-col items-center">
+                    <Monitor className="h-24 w-24 text-slate-500 mb-6" />
+                    <h1 className="text-slate-400 font-mono text-xl tracking-widest uppercase">Weekend Sleep Mode</h1>
+                    <p className="text-slate-600 font-mono text-xs mt-4">Polling and network activity suspended.</p>
+                </div>
             </div>
         )
     }
