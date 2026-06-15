@@ -25,8 +25,6 @@ const supabaseAdmin = createClient(
 )
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
-export const fetchCache = 'force-no-store'
 
 export async function GET(
   _request: Request,
@@ -95,7 +93,7 @@ export async function GET(
 
     if (!winningProjectId) {
       const res = NextResponse.json({ screen, project: null, playlist: [], timezone })
-      res.headers.set('Cache-Control', 'no-store, max-age=0')
+      res.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=30')
       return res
     }
 
@@ -129,8 +127,8 @@ export async function GET(
       timezone,
       debug_supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL 
     })
-    // Cache disabled completely
-    res.headers.set('Cache-Control', 'no-store, max-age=0')
+    // CDN caches for 5s, serves stale for up to 30s while revalidating
+    res.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=30')
     return res
   } catch (err) {
     console.error('[/api/display] Error:', err)

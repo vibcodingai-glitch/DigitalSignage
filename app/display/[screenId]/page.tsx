@@ -259,7 +259,7 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
         }
 
         beat('online')
-        const iv = setInterval(() => beat(), 30_000)
+        const iv = setInterval(() => beat(), 60_000)
 
         const onUnload = () => beat('offline')
         window.addEventListener('beforeunload', onUnload)
@@ -297,7 +297,7 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
 
         // Run immediately on mount, then every 60s
         evaluateSchedules()
-        const scheduleIv = setInterval(evaluateSchedules, 60_000)
+        const scheduleIv = setInterval(evaluateSchedules, 120_000)
 
         return () => clearInterval(scheduleIv)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -488,8 +488,8 @@ export default function ScreenDisplayPage({ params }: { params: { screenId: stri
             }
         }
 
-        // Poll every 3 seconds
-        const interval = setInterval(pollPushEvents, 3000)
+        // Poll every 15 seconds (fallback for Realtime websockets)
+        const interval = setInterval(pollPushEvents, 15_000)
         // Also poll once immediately
         pollPushEvents()
 

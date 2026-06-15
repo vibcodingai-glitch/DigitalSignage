@@ -59,6 +59,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        /*
+         * Match all routes EXCEPT:
+         * - Static files (_next/static, _next/image, images, etc.)
+         * - Display API endpoints (high-frequency polling from screens)
+         * - Proxy API (public, no auth needed)
+         * - Heartbeat API (public, no auth needed)
+         */
+        '/((?!_next/static|_next/image|favicon.ico|api/display|api/proxy|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }

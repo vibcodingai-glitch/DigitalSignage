@@ -40,7 +40,9 @@ export async function GET(
       .order('created_at', { ascending: false })
       .limit(5)
 
-    return NextResponse.json({ events: events || [] })
+    const res = NextResponse.json({ events: events || [] })
+    res.headers.set('Cache-Control', 'public, s-maxage=3, stale-while-revalidate=10')
+    return res
   } catch (err) {
     console.error('[GET push-events poll]', err)
     return NextResponse.json({ events: [] })
