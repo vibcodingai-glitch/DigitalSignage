@@ -30,18 +30,23 @@ export default function ContentRenderer({
     if (type === 'powerbi_frame' && src.includes('powerbi.com')) {
         try {
             const u = new URL(src)
-            const reportMatch = u.pathname.match(/\/groups\/([^/]+)\/reports\/([^/]+)/)
-            const appReportMatch = u.pathname.match(/\/groups\/([^/]+)\/apps\/([^/]+)\/reports\/([^/]+)/)
+            // Match both /groups/{groupId}/reports/{reportId}/{bookmarkId?}
+            // and /groups/{groupId}/apps/{appId}/reports/{reportId}/{bookmarkId?}
+            const reportMatch = u.pathname.match(/\/groups\/([^/]+)\/reports\/([^/]+)(?:\/([^/?#]+))?/)
+            const appReportMatch = u.pathname.match(/\/groups\/([^/]+)\/apps\/([^/]+)\/reports\/([^/]+)(?:\/([^/?#]+))?/)
             
             let groupId = ''
             let reportId = ''
+            let bookmarkId = ''  // The page/bookmark segment after reportId
             
-            if (reportMatch) {
-                groupId = reportMatch[1]
-                reportId = reportMatch[2]
-            } else if (appReportMatch) {
+            if (appReportMatch) {
                 groupId = appReportMatch[1]
                 reportId = appReportMatch[3]
+                bookmarkId = appReportMatch[4] || ''
+            } else if (reportMatch) {
+                groupId = reportMatch[1]
+                reportId = reportMatch[2]
+                bookmarkId = reportMatch[3] || ''
             }
 
             if (reportId) {
@@ -49,8 +54,10 @@ export default function ContentRenderer({
                 embedUrl.searchParams.set('reportId', reportId)
                 if (groupId && groupId !== 'me') embedUrl.searchParams.set('groupId', groupId)
                 embedUrl.searchParams.set('autoAuth', 'true')
-                embedUrl.searchParams.set('ctid', u.searchParams.get('ctid') || '')
+                if (u.searchParams.get('ctid')) embedUrl.searchParams.set('ctid', u.searchParams.get('ctid')!)
                 embedUrl.searchParams.set('chromeless', '1')
+                // Critical: preserve bookmark/page ID so each link navigates to the correct page
+                if (bookmarkId) embedUrl.searchParams.set('pageName', bookmarkId)
                 src = embedUrl.toString()
             } else {
                 if (!u.searchParams.has('action')) u.searchParams.set('action', 'embedview')
