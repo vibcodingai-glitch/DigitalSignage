@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
+import { useUser } from "@/hooks/use-user"
+import { createClient } from "@/lib/supabase/client"
 import {
     UploadCloud, Image as ImageIcon,
     Video as VideoIcon, File as FileIcon, X, ArrowUpCircle
@@ -32,6 +34,8 @@ interface UploadDialogProps {
 
 export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChange, onUploadComplete }: UploadDialogProps) {
     const { toast } = useToast()
+    const { profile } = useUser()
+    const supabase = createClient()
 
     const [uploadFiles, setUploadFiles] = useState<UploadFileItem[]>([])
     const [isUploading, setIsUploading] = useState(false)
@@ -77,47 +81,93 @@ export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChang
     }
 
     const startUploads = async () => {
+        if (!profile?.organization_id) {
+            toast({ title: 'Not ready', description: 'Could not determine your organization.', variant: 'destructive' })
+            return
+        }
         setIsUploading(true)
+        const orgId = profile.organization_id
 
         for (let i = 0; i < uploadFiles.length; i++) {
             if (uploadFiles[i].status === 'success') continue;
 
             const fileItem = uploadFiles[i]
-            updateUploadState(i, { status: 'uploading', progress: 10 })
-
-            // Progress Simulator
-            const progressTimer = setInterval(() => {
-                setUploadFiles(prev => {
-                    const clone = [...prev]
-                    if (clone[i].progress < 90) {
-                        clone[i].progress += 5
-                    }
-                    return clone
-                })
-            }, 300)
+            updateUploadState(i, { status: 'uploading', progress: 5 })
 
             try {
-                // Upload entirely via server-side API to bypass Web Locks deadlock
-                const formData = new FormData()
-                formData.append('file', fileItem.file)
-                formData.append('name', fileItem.name)
-                formData.append('duration', String(fileItem.duration))
+                const isVideo = fileItem.file.type.startsWith('video/')
 
-                const res = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                })
+                if (isVideo) {
+                    // ── DIRECT UPLOAD to Supabase Storage (bypasses Vercel 4.5MB body limit) ──
+                    const ext = fileItem.file.name.split('.').pop()
+                    const filePath = `${orgId}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`
 
-                clearInterval(progressTimer)
+                    const { data: storageData, error: storageError } = await supabase.storage
+                        .from('content')
+                        .upload(filePath, fileItem.file, {
+                            contentType: fileItem.file.type || 'video/mp4',
+                            upsert: false,
+                            onUploadProgress: (progress) => {
+                                const pct = Math.round((progress.loaded / progress.total) * 90)
+                                updateUploadState(i, { progress: pct })
+                            }
+                        })
 
-                if (!res.ok) {
-                    const errData = await res.json().catch(() => ({}))
-                    throw new Error(errData.error || 'Upload failed')
+                    if (storageError) throw new Error(storageError.message)
+
+                    // Register the content item via API (small JSON call, no file)
+                    const { data: { publicUrl } } = supabase.storage.from('content').getPublicUrl(storageData.path)
+
+                    const res = await fetch('/api/upload/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: fileItem.name,
+                            type: 'video',
+                            file_path: storageData.path,
+                            source_url: publicUrl,
+                            file_size: fileItem.file.size,
+                        })
+                    })
+
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}))
+                        throw new Error(errData.error || 'Failed to register upload')
+                    }
+
+                    updateUploadState(i, { status: 'success', progress: 100 })
+
+                } else {
+                    // ── SERVER UPLOAD for images & audio (small files, fine through Vercel) ──
+                    const progressTimer = setInterval(() => {
+                        setUploadFiles(prev => {
+                            const clone = [...prev]
+                            if (clone[i].progress < 90) clone[i].progress += 5
+                            return clone
+                        })
+                    }, 300)
+
+                    const formData = new FormData()
+                    formData.append('file', fileItem.file)
+                    formData.append('name', fileItem.name)
+                    formData.append('duration', String(fileItem.duration))
+
+                    const res = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    })
+
+                    clearInterval(progressTimer)
+
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}))
+                        throw new Error(errData.error || 'Upload failed')
+                    }
+
+                    updateUploadState(i, { status: 'success', progress: 100 })
                 }
 
-                updateUploadState(i, { status: 'success', progress: 100 })
             } catch (error) {
-                clearInterval(progressTimer)
                 updateUploadState(i, { status: 'error', error: (error as Error).message })
             }
         }
