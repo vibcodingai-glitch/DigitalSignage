@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
 import { useUser } from "@/hooks/use-user"
-import { createClient } from "@/lib/supabase/client"
 import {
     UploadCloud, Image as ImageIcon,
     Video as VideoIcon, File as FileIcon, X, ArrowUpCircle
@@ -35,7 +34,6 @@ interface UploadDialogProps {
 export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChange, onUploadComplete }: UploadDialogProps) {
     const { toast } = useToast()
     const { profile } = useUser()
-    const supabase = createClient()
 
     const [uploadFiles, setUploadFiles] = useState<UploadFileItem[]>([])
     const [isUploading, setIsUploading] = useState(false)
@@ -86,7 +84,6 @@ export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChang
             return
         }
         setIsUploading(true)
-        const orgId = profile.organization_id
 
         for (let i = 0; i < uploadFiles.length; i++) {
             if (uploadFiles[i].status === 'success') continue;
@@ -98,40 +95,55 @@ export const UploadDialog = React.memo(function UploadDialog({ open, onOpenChang
                 const isVideo = fileItem.file.type.startsWith('video/')
 
                 if (isVideo) {
-                    // ── DIRECT UPLOAD to Supabase Storage (bypasses Vercel 4.5MB body limit) ──
-                    const ext = fileItem.file.name.split('.').pop()
-                    const filePath = `${orgId}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`
-
-                    const { data: storageData, error: storageError } = await supabase.storage
-                        .from('content')
-                        .upload(filePath, fileItem.file, {
+                    // ── SIGNED URL + XHR UPLOAD ──
+                    // Step 1: Get a signed upload URL from the server (service role)
+                    const signRes = await fetch('/api/upload/signed-url', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            fileName: fileItem.file.name,
                             contentType: fileItem.file.type || 'video/mp4',
-                            upsert: false,
-                            onUploadProgress: (progress) => {
-                                const pct = Math.round((progress.loaded / progress.total) * 90)
+                        })
+                    })
+                    if (!signRes.ok) {
+                        const errData = await signRes.json().catch(() => ({}))
+                        throw new Error(errData.error || 'Could not generate upload URL')
+                    }
+                    const { signedUrl, filePath, publicUrl } = await signRes.json()
+
+                    // Step 2: Upload directly to Supabase via XHR (real progress, no Vercel size limit)
+                    await new Promise<void>((resolve, reject) => {
+                        const xhr = new XMLHttpRequest()
+                        xhr.open('PUT', signedUrl, true)
+                        xhr.setRequestHeader('Content-Type', fileItem.file.type || 'video/mp4')
+                        xhr.upload.onprogress = (event) => {
+                            if (event.lengthComputable) {
+                                const pct = Math.round((event.loaded / event.total) * 90)
                                 updateUploadState(i, { progress: pct })
                             }
-                        })
+                        }
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) resolve()
+                            else reject(new Error(`Storage upload failed: ${xhr.status} ${xhr.statusText}`))
+                        }
+                        xhr.onerror = () => reject(new Error('Network error during upload'))
+                        xhr.send(fileItem.file)
+                    })
 
-                    if (storageError) throw new Error(storageError.message)
-
-                    // Register the content item via API (small JSON call, no file)
-                    const { data: { publicUrl } } = supabase.storage.from('content').getPublicUrl(storageData.path)
-
-                    const res = await fetch('/api/upload/register', {
+                    // Step 3: Register the metadata (tiny JSON POST)
+                    const regRes = await fetch('/api/upload/register', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             name: fileItem.name,
                             type: 'video',
-                            file_path: storageData.path,
+                            file_path: filePath,
                             source_url: publicUrl,
                             file_size: fileItem.file.size,
                         })
                     })
-
-                    if (!res.ok) {
-                        const errData = await res.json().catch(() => ({}))
+                    if (!regRes.ok) {
+                        const errData = await regRes.json().catch(() => ({}))
                         throw new Error(errData.error || 'Failed to register upload')
                     }
 
