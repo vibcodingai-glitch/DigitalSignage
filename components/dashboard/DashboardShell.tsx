@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Monitor, MapPin, FolderOpen, Layers, Bell, Settings, LayoutDashboard, Menu, Plus, Users, Activity } from "lucide-react"
+import { Monitor, MapPin, FolderOpen, Layers, Bell, Settings, LayoutDashboard, Menu, Plus, Users, Activity, Megaphone } from "lucide-react"
 
 import { SidebarProvider, SidebarTrigger, Sidebar, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, useSidebar } from "@/components/ui/sidebar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -45,6 +45,7 @@ const navGroups = [
         label: "Control",
         items: [
             { name: "Push Events", href: "/dashboard/push-events", icon: Bell },
+            { name: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone },
             { name: "Monitoring", href: "/dashboard/monitoring", icon: Activity },
         ]
     },
