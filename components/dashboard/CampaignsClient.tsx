@@ -41,28 +41,57 @@ function ScreenMappingRow({
     screen: Screen; selectedProjectId: string; projects: Project[]
     onChange: (projectId: string) => void; onRemove: () => void
 }) {
+    const selectedProject = projects.find(p => p.id === selectedProjectId)
     return (
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-            <Monitor className="h-4 w-4 text-slate-400 shrink-0" />
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 flex-1 truncate">{screen.name}</span>
-            <Select value={selectedProjectId} onValueChange={onChange}>
-                <SelectTrigger className="w-52 text-sm bg-white dark:bg-white/5 border-slate-200 dark:border-white/10">
-                    <SelectValue placeholder="Choose project…" />
-                </SelectTrigger>
-                <SelectContent>
-                    {projects.map(p => (
-                        <SelectItem key={p.id} value={p.id}>
+        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 overflow-hidden">
+            {/* Screen header */}
+            <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-lg bg-slate-200 dark:bg-white/10 flex items-center justify-center">
+                        <Monitor className="h-3.5 w-3.5 text-slate-500" />
+                    </div>
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{screen.name}</span>
+                </div>
+                <button
+                    onClick={onRemove}
+                    className="h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                >
+                    <X className="h-3.5 w-3.5" />
+                </button>
+            </div>
+            {/* Project selector */}
+            <div className="p-3">
+                <Select value={selectedProjectId} onValueChange={onChange}>
+                    <SelectTrigger className="w-full h-10 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-white/10 focus:ring-violet-500">
+                        {selectedProject ? (
                             <div className="flex items-center gap-2">
-                                <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: p.color || '#6366f1' }} />
-                                {p.name}
+                                <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: selectedProject.color || '#6366f1' }} />
+                                <span className="truncate">{selectedProject.name}</span>
                             </div>
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            <button onClick={onRemove} className="text-slate-400 hover:text-red-500 transition-colors">
-                <X className="h-4 w-4" />
-            </button>
+                        ) : (
+                            <SelectValue placeholder="Choose override project…" />
+                        )}
+                    </SelectTrigger>
+                    <SelectContent>
+                        <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            Override Project
+                        </div>
+                        {projects.map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                                <div className="flex items-center gap-2">
+                                    <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: p.color || '#6366f1' }} />
+                                    <span>{p.name}</span>
+                                </div>
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                {!selectedProjectId && (
+                    <p className="text-[11px] text-amber-500 mt-1.5 flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" /> Select a project for this screen
+                    </p>
+                )}
+            </div>
         </div>
     )
 }
@@ -184,32 +213,44 @@ function CampaignBuilderDialog({
                     </div>
 
                     {/* Screen mappings */}
-                    <div className="space-y-3">
-                        <Label>Screen → Project Mappings</Label>
-                        <p className="text-xs text-slate-500">Add a screen and pick which project it should show during this campaign.</p>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label>Screen → Project Mappings</Label>
+                            <span className="text-xs text-slate-400">{addedScreenIds.length} screen{addedScreenIds.length !== 1 ? 's' : ''} added</span>
+                        </div>
+                        <p className="text-xs text-slate-500">Each screen plays a different project when this campaign is active.</p>
 
-                        {addedScreenIds.map(screenId => {
-                            const screen = screens.find(s => s.id === screenId)
-                            if (!screen) return null
-                            return (
-                                <ScreenMappingRow
-                                    key={screenId}
-                                    screen={screen}
-                                    selectedProjectId={mappings[screenId] || ''}
-                                    projects={projects}
-                                    onChange={pid => setProjectForScreen(screenId, pid)}
-                                    onRemove={() => removeScreen(screenId)}
-                                />
-                            )
-                        })}
+                        <div className="space-y-2">
+                            {addedScreenIds.map(screenId => {
+                                const screen = screens.find(s => s.id === screenId)
+                                if (!screen) return null
+                                return (
+                                    <ScreenMappingRow
+                                        key={screenId}
+                                        screen={screen}
+                                        selectedProjectId={mappings[screenId] || ''}
+                                        projects={projects}
+                                        onChange={pid => setProjectForScreen(screenId, pid)}
+                                        onRemove={() => removeScreen(screenId)}
+                                    />
+                                )
+                            })}
+                        </div>
 
+                        {/* Add screen row */}
                         {availableScreens.length > 0 && (
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 pt-1">
                                 <Select value={screenToAdd} onValueChange={setScreenToAdd}>
-                                    <SelectTrigger className="flex-1 bg-white dark:bg-white/5">
-                                        <SelectValue placeholder="Add a screen…" />
+                                    <SelectTrigger className="flex-1 bg-white dark:bg-slate-800 border-slate-200 dark:border-white/10 text-sm">
+                                        <div className="flex items-center gap-2 text-slate-500">
+                                            <Plus className="h-4 w-4" />
+                                            <SelectValue placeholder="Add a screen to this campaign…" />
+                                        </div>
                                     </SelectTrigger>
                                     <SelectContent>
+                                        <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                            Available Screens
+                                        </div>
                                         {availableScreens.map(s => (
                                             <SelectItem key={s.id} value={s.id}>
                                                 <div className="flex items-center gap-2">
@@ -220,16 +261,22 @@ function CampaignBuilderDialog({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <Button variant="outline" onClick={addScreen} disabled={!screenToAdd}>
+                                <Button
+                                    variant="outline"
+                                    onClick={addScreen}
+                                    disabled={!screenToAdd}
+                                    className="shrink-0 border-violet-300 dark:border-violet-500/30 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-500/10"
+                                >
                                     <Plus className="h-4 w-4" />
                                 </Button>
                             </div>
                         )}
 
                         {addedScreenIds.length === 0 && (
-                            <div className="flex items-center gap-2 p-3 rounded-xl border border-dashed border-slate-200 dark:border-white/10 text-slate-400 text-sm">
-                                <AlertTriangle className="h-4 w-4" />
-                                No screens added yet. Use the dropdown above to add screens.
+                            <div className="flex flex-col items-center justify-center py-6 rounded-xl border border-dashed border-slate-200 dark:border-white/10 text-center">
+                                <Monitor className="h-8 w-8 text-slate-300 dark:text-slate-600 mb-2" />
+                                <p className="text-sm text-slate-500">No screens added yet</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Use the dropdown above to add screens</p>
                             </div>
                         )}
                     </div>
