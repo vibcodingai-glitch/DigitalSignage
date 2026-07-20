@@ -37,6 +37,17 @@ CREATE INDEX idx_campaign_screens_camp_id ON public.campaign_screens(campaign_id
 CREATE INDEX idx_campaign_screens_screen  ON public.campaign_screens(screen_id);
 CREATE INDEX idx_screen_projects_camp_id  ON public.screen_projects(campaign_id);
 
+-- Ensure the updated_at helper function exists (may already exist from earlier migrations)
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
 -- updated_at trigger for campaigns
 CREATE TRIGGER tr_campaigns_updated_at
   BEFORE UPDATE ON public.campaigns
