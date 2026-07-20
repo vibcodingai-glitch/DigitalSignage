@@ -43,7 +43,7 @@ function ScreenMappingRow({
 }) {
     const selectedProject = projects.find(p => p.id === selectedProjectId)
     return (
-        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 overflow-hidden">
+        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
             {/* Screen header */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 dark:border-white/10">
                 <div className="flex items-center gap-2">
@@ -72,11 +72,16 @@ function ScreenMappingRow({
                             <SelectValue placeholder="Choose override project…" />
                         )}
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[200]">
                         <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                             Override Project
                         </div>
-                        {projects.map(p => (
+                        {projects.length === 0 ? (
+                            <div className="px-3 py-4 text-center">
+                                <p className="text-sm text-slate-500">No projects yet</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Create sub-projects in Projects first</p>
+                            </div>
+                        ) : projects.map(p => (
                             <SelectItem key={p.id} value={p.id}>
                                 <div className="flex items-center gap-2">
                                     <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: p.color || '#6366f1' }} />
@@ -242,12 +247,9 @@ function CampaignBuilderDialog({
                             <div className="flex gap-2 pt-1">
                                 <Select value={screenToAdd} onValueChange={setScreenToAdd}>
                                     <SelectTrigger className="flex-1 bg-white dark:bg-slate-800 border-slate-200 dark:border-white/10 text-sm">
-                                        <div className="flex items-center gap-2 text-slate-500">
-                                            <Plus className="h-4 w-4" />
-                                            <SelectValue placeholder="Add a screen to this campaign…" />
-                                        </div>
+                                        <SelectValue placeholder="+ Add a screen to this campaign…" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="z-[200]">
                                         <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                                             Available Screens
                                         </div>
