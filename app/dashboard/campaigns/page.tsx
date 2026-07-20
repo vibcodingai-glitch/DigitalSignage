@@ -30,7 +30,7 @@ export default async function CampaignsPage() {
             campaign_screens (
                 id, screen_id, project_id,
                 screens ( id, name, display_key ),
-                projects ( id, name, color )
+                projects ( id, name )
             )
         `)
         .eq('organization_id', orgId)
@@ -39,7 +39,7 @@ export default async function CampaignsPage() {
     // Load all screens + projects for the builder
     const [screensResult, projectsResult] = await Promise.all([
         sb.from('screens').select('id, name, display_key, status').eq('organization_id', orgId).order('name'),
-        sb.from('projects').select('id, name, color').eq('organization_id', orgId).order('name'),
+        sb.from('projects').select('id, name').eq('organization_id', orgId).order('name'),
     ])
 
     return (

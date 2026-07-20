@@ -34,7 +34,7 @@ export async function GET(
     const sb = createServiceClient()
     const { data, error } = await sb
       .from('campaigns')
-      .select(`*, campaign_screens(*, screens(id, name, display_key), projects(id, name, color))`)
+      .select(`*, campaign_screens(*, screens(id, name, display_key), projects(id, name))`)
       .eq('id', params.id)
       .eq('organization_id', orgId)
       .single()
@@ -82,7 +82,7 @@ export async function PUT(
 
     const { data: full } = await sb
       .from('campaigns')
-      .select(`*, campaign_screens(*, screens(id, name), projects(id, name, color))`)
+      .select(`*, campaign_screens(*, screens(id, name), projects(id, name))`)
       .eq('id', params.id)
       .single()
 

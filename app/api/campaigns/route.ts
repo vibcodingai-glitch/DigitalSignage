@@ -37,7 +37,7 @@ export async function GET() {
           screen_id,
           project_id,
           screens ( id, name, display_key ),
-          projects ( id, name, color )
+          projects ( id, name )
         )
       `)
       .eq('organization_id', orgId)
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     // Return full campaign with mappings
     const { data: full } = await sb
       .from('campaigns')
-      .select(`*, campaign_screens(*, screens(id, name), projects(id, name, color))`)
+      .select(`*, campaign_screens(*, screens(id, name), projects(id, name))`)
       .eq('id', campaign.id)
       .single()
 
